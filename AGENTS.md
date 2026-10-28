@@ -11,9 +11,12 @@ what work exists only on this machine, and which local branches were deleted
 on the remote. It is not a git UI: it never commits, pushes, checks out,
 stashes or resets.
 
-- Design spec (source of truth for behavior, written in Turkish):
-  `docs/superpowers/specs/2026-10-27-gitdrift-design.md`
-- Implementation plan: `docs/superpowers/plans/2026-10-27-gitdrift.md`
+- Architecture and decision records (read before changing behavior):
+  `docs/architecture/README.md` and `docs/architecture/NNNN-*.md`. A change
+  to a recorded decision adds a new record that supersedes the old one.
+- Local planning notes, when present, live in `docs/superpowers/` (design
+  spec and plan, written in Turkish). That directory is git-ignored and never
+  committed.
 
 ## Hard rules
 
@@ -33,8 +36,8 @@ stashes or resets.
    helper or git config.
 2. **English only in code.** Identifiers, comments, UI text, test data and
    commit messages are English. No Turkish words or characters anywhere in the
-   codebase (the specs and plans under `docs/superpowers/` are the only
-   exception).
+   codebase, including `docs/architecture/` (the git-ignored notes under
+   `docs/superpowers/` are the only exception).
 3. **No commits.** Do not run `git commit`, `git push`, `git tag` or create
    remotes. When a change is done, propose a Conventional Commits message for
    the human to use.
@@ -68,7 +71,13 @@ internal/workspace/  repo discovery, bounded parallel refresh, UI backend
 internal/ui/         Bubble Tea v2 model, panes, dialogs
 tools/               separate module pinning dev tools (go tool)
 scripts/, assets/    demo workspace, screenshot tapes (assets/vhs) and images
+docs/                configuration, troubleshooting, security model, development
+docs/architecture/   architecture overview and numbered decision records
 ```
+
+When a change alters behavior a user can see, update the matching page in
+`docs/` (a new message belongs in `docs/troubleshooting.md`; a change to what
+gitdrift writes or trusts belongs in `docs/security-model.md`).
 
 ## Commands
 

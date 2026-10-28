@@ -25,3 +25,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and a printed restore command.
 - Fetch refuses remotes without a url or with a refspec that writes outside
   `refs/remotes/`, and never prunes tags.
+- Repos pane with aligned, full-width columns and a header row naming them.
+- Architecture overview and decision records in `docs/architecture/`.

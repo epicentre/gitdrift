@@ -179,6 +179,8 @@ The zoomed repository table.
 
 gitdrift is built not to lose your code: nothing is written without the checks
 below, and the one destructive action shows what it removes and asks first.
+What it trusts and where its guarantees end is described in the
+[security model](docs/security-model.md).
 Every git process runs through one allowlist.
 Besides read-only commands, exactly these writing commands are allowed:
 
@@ -263,52 +265,21 @@ gdrift prints `waiting for git to finish…` when that takes more than a second.
 
 ## Configuration
 
-Both settings are plain git config keys.
+Two git config keys, both optional:
 
-### `gitdrift.base`
-
-The base branch of a repository: what a feature branch is measured against
-(`base↓N`, the Base tab). Precedence: the repository's own config, then your
-global config, then automatic detection (the remote's default branch, then
-`main`, then `master`). The remote is the upstream's remote, else `origin`,
-else the only remote.
-
-A value is a branch name (`develop`, looked up on the reference remote) or
-`remote/branch` (`upstream/develop`).
+- `gitdrift.base` sets the base branch a feature branch is measured
+  against. Without it, the remote's default branch, then `main`, then
+  `master`, is used. In the dashboard, `b` picks a base for one repository.
+- `gitdrift.badge` adds badge rules (`<label>=<pattern>`) to the built-in
+  `deps`, `mig` and `env` rules.
 
 ```
-git config --global gitdrift.base develop        # every repository
-git config --local gitdrift.base upstream/main   # this repository only
-git config --local --unset gitdrift.base         # back to the default
-```
-
-In the dashboard, `b` opens a picker of the remote-tracking branches. Choosing
-one writes `gitdrift.base` to that repository's local config, and "Reset to
-default" removes it.
-
-### `gitdrift.badge`
-
-Badges tell you what to do after a pull. Each rule is `<label>=<pattern>`. The
-label is lowercase letters, digits and hyphens, starts with a letter or digit,
-and has at most 12 characters. A
-pattern without a slash matches the file name at any depth; a pattern with a
-slash matches the whole path from the repository root. Patterns are shell-style
-globs, where `*` does not cross `/`.
-
-The key can be given several times and adds to the built-in rules:
-
-```
+git config --global gitdrift.base develop
 git config --global --add gitdrift.badge 'schema=*.sql'
-git config --local  --add gitdrift.badge 'infra=deploy/*.yaml'
 ```
 
-Invalid values are skipped. Built-in rules:
-
-| Label  | Matches                                                           |
-| ------ | ----------------------------------------------------------------- |
-| `deps` | `composer.json`, `composer.lock`, `package.json`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`, `go.mod`, `go.sum`, `Cargo.toml`, `Cargo.lock`, `Gemfile`, `Gemfile.lock`, `requirements*.txt`, `Pipfile`, `Pipfile.lock`, `poetry.lock`, `uv.lock`, `pyproject.toml`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `gradle.lockfile` |
-| `mig`  | files inside a `migrations`, `migrate` or `alembic/versions` directory, at any depth |
-| `env`  | `.env.example`, `.env.sample`, `.env.dist`, `.env.template`       |
+The full reference, including precedence, value forms and the built-in
+rules, is in [docs/configuration.md](docs/configuration.md).
 
 ## How "only on this machine" is counted
 
@@ -319,7 +290,13 @@ count.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and
+[docs/development.md](docs/development.md). How gitdrift is built, and why, is
+described in [docs/architecture](docs/architecture/README.md).
+
+More documentation, including
+[troubleshooting](docs/troubleshooting.md) and the
+[security model](docs/security-model.md), is in [docs](docs/README.md).
 
 ## Security
 

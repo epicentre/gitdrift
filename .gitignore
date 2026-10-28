@@ -3,7 +3,7 @@
 
 .agents/
 .claude/
-docs/
+docs/superpowers/
 .superpowers/
 
 skills-lock.json

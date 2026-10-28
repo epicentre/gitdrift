@@ -20,6 +20,13 @@ make lint
 
 Run `make check` before sending a change.
 
+## Architecture
+
+Read [docs/architecture](docs/architecture/README.md) before changing
+behavior: it maps the packages, the main flows and the invariants, and links
+the decision records. A change that departs from a recorded decision adds a
+new record that supersedes it, in the same pull request.
+
 ## Safety rules
 
 gitdrift must never lose user code. Every git process goes through
@@ -35,7 +42,8 @@ gitdrift must never lose user code. Every git process goes through
   `git config --local --unset gitdrift.base`
 
 Do not add a new writing command or weaken the allowlist without opening an
-issue to discuss it first. Never use `sh -c`, and never override the user's
+issue to discuss it first; such a change needs its own decision record (see
+[decision 1](docs/architecture/0001-run-git-through-an-allowlist.md)). Never use `sh -c`, and never override the user's
 `GIT_SSH_COMMAND`, credential helper or git config.
 
 ## Tests
@@ -47,6 +55,9 @@ issue to discuss it first. Never use `sh -c`, and never override the user's
   parallel tests.
 - TUI golden files live in `internal/ui/testdata`; refresh them with
   `go test ./internal/ui -update` and review the diff.
+
+[docs/development.md](docs/development.md) covers the test techniques, the
+demo workspace and screenshots, and common changes in more detail.
 
 ## Code and commits
 
