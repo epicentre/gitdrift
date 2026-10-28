@@ -39,6 +39,8 @@ const (
 	keyHome     = "home"
 	keyEnd      = "end"
 	keyDown     = "down"
+	keyLeft     = "left"
+	keyRight    = "right"
 	keyTab      = "tab"
 	keyShiftTab = "shift+tab"
 	keyEnter    = "enter"
@@ -148,6 +150,8 @@ func keyPress(name string) tea.KeyPressMsg {
 	special := map[string]tea.KeyPressMsg{
 		keyUp:        {Code: tea.KeyUp},
 		keyDown:      {Code: tea.KeyDown},
+		keyLeft:      {Code: tea.KeyLeft},
+		keyRight:     {Code: tea.KeyRight},
 		keyPgUp:      {Code: tea.KeyPgUp},
 		keyPgDown:    {Code: tea.KeyPgDown},
 		keyHome:      {Code: tea.KeyHome},
@@ -1067,20 +1071,20 @@ func TestFooterLine(t *testing.T) {
 		},
 		{
 			"repos with folders", PaneRepos, false, true, TabIncoming,
-			"space select · p pull · P pull all safe · [ ] folders · / filter · r/R refresh · b base · z zoom · ? help",
+			"space select · p pull · P pull all safe · ←→ folders · / filter · r/R refresh · b base · z zoom · ? help",
 		},
 		{
 			"repos zoomed with folders", PaneRepos, true, true, TabBranches,
-			"space select · p pull · P pull all safe · f only-here filter · [ ] folders · / filter · z unzoom · ? help",
+			"space select · p pull · P pull all safe · f only-here filter · ←→ folders · / filter · z unzoom · ? help",
 		},
-		{"commits", PaneCommits, false, false, TabIncoming, "[ ] tabs · enter files · z zoom · esc back · ? help"},
-		{"commits base with folders", PaneCommits, true, true, TabBase, "[ ] tabs · enter files · z zoom · esc back · ? help"},
-		{"commits local", PaneCommits, false, false, TabLocal, "[ ] tabs · enter files · z zoom · esc back · ? help"},
+		{"commits", PaneCommits, false, false, TabIncoming, "←→ tabs · enter files · z zoom · esc back · ? help"},
+		{"commits base with folders", PaneCommits, true, true, TabBase, "←→ tabs · enter files · z zoom · esc back · ? help"},
+		{"commits local", PaneCommits, false, false, TabLocal, "←→ tabs · enter files · z zoom · esc back · ? help"},
 		{
 			"commits branches", PaneCommits, false, true, TabBranches,
-			"space select · d delete gone · [ ] tabs · z zoom · esc back · ? help",
+			"space select · d delete gone · ←→ tabs · z zoom · esc back · ? help",
 		},
-		{"files", PaneFiles, true, true, TabBranches, "enter diff · [ ] tabs · z zoom · esc back · ? help"},
+		{"files", PaneFiles, true, true, TabBranches, "enter diff · ←→ tabs · z zoom · esc back · ? help"},
 		{"diff", PaneDiff, false, true, TabIncoming, "↑↓ scroll · pgup/pgdn page · z zoom · esc back · ? help"},
 	}
 
@@ -1112,7 +1116,7 @@ func TestKeyMapHelp(t *testing.T) {
 
 	want := []string{
 		"up", "k", "down", "j", "pgup", "pgdown", "home", "g", "end", "G", "tab", "shift+tab",
-		"1", "2", "3", "4", "enter", "esc", "[", "]", "z", "space", "p", "P", "r", "R", "b", "d", "f", "/", "?",
+		"1", "2", "3", "4", "enter", "esc", "left", "h", "[", "right", "l", "]", "z", "space", "p", "P", "r", "R", "b", "d", "f", "/", "?",
 		"q", "ctrl+c",
 	}
 

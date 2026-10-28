@@ -149,7 +149,7 @@ func TestFilterTakesKeys(t *testing.T) {
 	t.Parallel()
 
 	keys := map[string]string{keySpace: " "}
-	for _, k := range []string{"q", "1", "2", "4", "[", "]", "f", "z", "?", "p", "P", "r", "R", "b", "d", "j", "G", "/"} {
+	for _, k := range []string{"q", "1", "2", "4", "[", "]", "h", "l", "f", "z", "?", "p", "P", "r", "R", "b", "d", "j", "G", "/"} {
 		keys[k] = k
 	}
 
@@ -194,7 +194,7 @@ func TestFilterTakesKeys(t *testing.T) {
 func TestFilterIgnoresOtherKeys(t *testing.T) {
 	t.Parallel()
 
-	for _, k := range []string{keyUp, keyDown, keyPgDown, keyHome, keyEnd, keyTab, keyShiftTab} {
+	for _, k := range []string{keyUp, keyDown, keyLeft, keyRight, keyPgDown, keyHome, keyEnd, keyTab, keyShiftTab} {
 		t.Run(k, func(t *testing.T) {
 			t.Parallel()
 

@@ -24,11 +24,11 @@ const (
 const (
 	footerRepos              = "space select · p pull · P pull all safe · r/R refresh · b base · z zoom · tab pane · ? help"
 	footerReposZoomed        = "space select · p pull · P pull all safe · f only-here filter · z unzoom · ? help"
-	footerReposFolders       = "space select · p pull · P pull all safe · [ ] folders · / filter · r/R refresh · b base · z zoom · ? help"
-	footerReposZoomedFolders = "space select · p pull · P pull all safe · f only-here filter · [ ] folders · / filter · z unzoom · ? help"
-	footerCommits            = "[ ] tabs · enter files · z zoom · esc back · ? help"
-	footerBranches           = "space select · d delete gone · [ ] tabs · z zoom · esc back · ? help"
-	footerFiles              = "enter diff · [ ] tabs · z zoom · esc back · ? help"
+	footerReposFolders       = "space select · p pull · P pull all safe · ←→ folders · / filter · r/R refresh · b base · z zoom · ? help"
+	footerReposZoomedFolders = "space select · p pull · P pull all safe · f only-here filter · ←→ folders · / filter · z unzoom · ? help"
+	footerCommits            = "←→ tabs · enter files · z zoom · esc back · ? help"
+	footerBranches           = "space select · d delete gone · ←→ tabs · z zoom · esc back · ? help"
+	footerFiles              = "enter diff · ←→ tabs · z zoom · esc back · ? help"
 	footerDiff               = "↑↓ scroll · pgup/pgdn page · z zoom · esc back · ? help"
 )
 

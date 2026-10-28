@@ -147,8 +147,8 @@ func reposPane(t *testing.T, m Model) (header string, lines, shown []string) {
 	return inside[0], inside[1:], relativePaths(m.rowsAt(m.visible()))
 }
 
-// TestFolderTabKeys walks the folder tabs of the nested fixture with ] and
-// [: each tab shows its repositories, FOLDER relative to the tab, and the
+// TestFolderTabKeys walks the folder tabs of the nested fixture with →, l
+// and ] forward and ←, h and [ back: each tab shows its repositories, FOLDER relative to the tab, and the
 // cursor stays on its repository while the tab shows it, else goes to the
 // first row; the detail panes follow the cursor and the header keeps
 // counting the whole workspace.
@@ -170,13 +170,13 @@ func TestFolderTabKeys(t *testing.T) {
 		shown           []string
 		cursor          string
 	}{
-		{"]", folderServices, titleTabServices, services, namePayments},
-		{"]", folderWeb, titleTabWeb, web, nameStorefront},
+		{keyRight, folderServices, titleTabServices, services, namePayments},
+		{"l", folderWeb, titleTabWeb, web, nameStorefront},
 		{"]", "", titleTabAll, all, nameStorefront},
-		{"[", folderWeb, titleTabWeb, web, nameStorefront},
-		{"[", folderServices, titleTabServices, services, "billing"},
+		{keyLeft, folderWeb, titleTabWeb, web, nameStorefront},
+		{"h", folderServices, titleTabServices, services, "billing"},
 		{"[", "", titleTabAll, all, "billing"},
-		{"[", folderWeb, titleTabWeb, web, nameStorefront},
+		{keyLeft, folderWeb, titleTabWeb, web, nameStorefront},
 	}
 
 	for i, s := range steps {

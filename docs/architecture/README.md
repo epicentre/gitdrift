@@ -179,7 +179,8 @@ one, and the old one's status says so.
 | [14](0014-test-against-real-git.md) | Test against real git with isolated config | Accepted |
 | [15](0015-tooling-and-supply-chain.md) | Pin tools in a module and actions by commit SHA | Accepted |
 | [16](0016-discover-repositories-recursively.md) | Discover repositories recursively, bounded by a depth | Accepted |
-| [17](0017-folders-in-the-repos-pane.md) | Show folders in the Repos pane: column, tabs and a filter | Accepted |
+| [17](0017-folders-in-the-repos-pane.md) | Show folders in the Repos pane: column, tabs and a filter | Accepted (tab keys superseded by 18) |
+| [18](0018-switch-tabs-with-the-arrow-keys.md) | Switch tabs with the arrow keys | Accepted |
 
 ### Adding a decision
 

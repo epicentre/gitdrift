@@ -159,8 +159,8 @@ stashes). Choose a commit to see its files and its diff in panes 3 and 4.
 When repositories sit in folders, the Repos pane title gets tabs: **All**, then
 one tab for each top-level folder, with the number of repositories in it. A
 repository directly in the folder you started in shows only in All. In a folder
-tab the FOLDER column shows the path below that tab. Press `[` and `]` in the
-Repos pane to move between the tabs.
+tab the FOLDER column shows the path below that tab. Press `←` and `→` (or
+`h` and `l`, or `[` and `]`) in the Repos pane to move between the tabs.
 
 `/` starts a filter in the Repos pane: type part of a repository's name or
 folder (case is ignored) and the pane shows only the matching rows within the
@@ -189,7 +189,7 @@ them.
 | `1` - `4`            | focus a pane                                             |
 | `enter`              | open in the next pane                                    |
 | `esc`                | back, leave zoom or clear filter                         |
-| `[` / `]`            | previous / next tab of the focused pane: folder tabs in Repos (when there are folders), Commits tabs elsewhere |
+| `←` `h` `[` / `→` `l` `]` | previous / next tab of the focused pane: folder tabs in Repos (when there are folders), Commits tabs elsewhere |
 | `/`                  | filter the repositories by name or folder (Repos pane)   |
 | `z`                  | zoom the focused pane                                    |
 | `space`              | select for pull (Repos pane) or select a gone branch (Branches tab) |

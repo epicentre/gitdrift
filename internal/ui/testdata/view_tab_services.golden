@@ -27,4 +27,4 @@ gitdrift  ~/code/work                                                           
 │ loading…                                                       ││                                                                                  │
 ╰────────────────────────────────────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────────────────╯
 services/payments · base origin/main (auto) · diverged · local changes · 27 behind origin/main
-space select · p pull · P pull all safe · [ ] folders · / filter · r/R refresh · b base · z zoom · ? help
+space select · p pull · P pull all safe · ←→ folders · / filter · r/R refresh · b base · z zoom · ? help

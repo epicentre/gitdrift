@@ -151,11 +151,12 @@ func TestTabKeysCycle(t *testing.T) {
 		want Tab
 	}{
 		{"]", TabBase},
-		{"]", TabLocal},
-		{"]", TabBranches},
+		{keyRight, TabLocal},
+		{"l", TabBranches},
 		{"]", TabIncoming},
-		{"[", TabBranches},
-		{"[", TabLocal},
+		{keyLeft, TabBranches},
+		{"h", TabLocal},
+		{"[", TabBase},
 	}
 
 	for i, s := range steps {
@@ -227,7 +228,7 @@ func TestDetailIncomingFlow(t *testing.T) {
 		"  a1b2c3d Merge branch 'feature/refunds'",
 		"  0badc0d fix: round invoice totals",
 		"  … 9 more",
-		"[ ] tabs · enter files · z zoom · esc back · ? help",
+		"←→ tabs · enter files · z zoom · esc back · ? help",
 	)
 }
 

@@ -18,7 +18,7 @@ the deletion result window.
 
 | Message | Cause | What to do |
 | --- | --- | --- |
-| `no matching repositories` | The folder tab, the `/` filter and `f` together leave no repository on screen. | Press `esc` in the Repos pane to clear the filter, press `f` to turn the only-here filter off, or switch the folder tab with `[` and `]`. |
+| `no matching repositories` | The folder tab, the `/` filter and `f` together leave no repository on screen. | Press `esc` in the Repos pane to clear the filter, press `f` to turn the only-here filter off, or switch the folder tab with `←` and `→`. |
 
 ## A repository is missing from the list
 

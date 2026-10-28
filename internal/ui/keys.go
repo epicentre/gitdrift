@@ -34,8 +34,8 @@ func defaultKeyMap() keyMap {
 		FocusPane: key.NewBinding(key.WithKeys("1", "2", "3", "4"), key.WithHelp("1-4", "focus pane")),
 		Enter:     key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open in the next pane")),
 		Back:      key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back, leave zoom or clear filter")),
-		PrevTab:   key.NewBinding(key.WithKeys("["), key.WithHelp("[", "previous tab")),
-		NextTab:   key.NewBinding(key.WithKeys("]"), key.WithHelp("]", "next tab")),
+		PrevTab:   key.NewBinding(key.WithKeys("left", "h", "["), key.WithHelp("←/h/[", "previous tab")),
+		NextTab:   key.NewBinding(key.WithKeys("right", "l", "]"), key.WithHelp("→/l/]", "next tab")),
 		Zoom:      key.NewBinding(key.WithKeys("z"), key.WithHelp("z", "zoom pane")),
 
 		Select:     key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "select for pull")),

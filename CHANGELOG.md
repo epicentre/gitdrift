@@ -14,7 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directories, `node_modules` or `vendor`.
 - `--depth N` sets how many directory levels are searched.
 - A FOLDER column shows where a repository sits below the workspace.
-- Folder tabs in the Repos pane, switched with `[` and `]`, with counts.
+- Folder tabs in the Repos pane, with counts.
+- `←`/`→` and `h`/`l` switch the tabs of the focused pane, besides `[` and
+  `]`, which need AltGr on some keyboard layouts.
 - A `/` filter for the Repos pane by name or folder; `P` and `R` act on the
   repositories shown.
 - Initial release: a terminal dashboard (`gdrift [dir]`) for drift across the
