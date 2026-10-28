@@ -1,0 +1,24 @@
+gitdrift  ~/code/work                            6 repos · 3 behind · 2 need attention · 2 only here
+╭─ 1 Repos ────────────────────────────────╮╭─ 4 Diff · e4f5a6b ───────────────────────────────────╮
+│ ! billing       feature/v…       ok      ││ commit e4f5a6b fix: cash rounding                    │
+│▸! payments      feature/c… *2    ↑3↓12   ││ diff --git a/app/Cash/Total.php b/app/Cash/Total.php │
+│   … 4 more                               ││ index 3f2a1b0..8c9d4e2 100644                        │
+╰──────────────────────────────────────────╯│ --- a/app/Cash/Total.php                             │
+╭─ 2 Inc  Base  Loc  [Branches ✂2 ⌂6] ─────╮│ +++ b/app/Cash/Total.php                             │
+│ GONE · deleted on remote                 ││ @@ -12,4 +12,4 @@                                    │
+│▸[ ] feature/cash-roun…  2 only here    3w││     public function total(): float                   │
+│ [ ] feature/qr-login    0 only here   1mo││     {                                                │
+│ ONLY ON THIS MACHINE                     ││ -       return round($this->sum, 1);                 │
+│     feature/checkout    3 not pushed     ││ +       return round($this->sum, 2);                 │
+│     stash@{0}           WIP on main    5d││     }                                                │
+│                                          ││                                                      │
+╰──────────────────────────────────────────╯│                                                      │
+╭─ 3 Only here · feature/cash-rounding ────╮│                                                      │
+│▸ e4f5a6b fix: cash rounding            3w││                                                      │
+│  5a6b7c8 wip: cash test                3w││                                                      │
+│                                          ││                                                      │
+│                                          ││                                                      │
+│                                          ││                                                      │
+╰──────────────────────────────────────────╯╰──────────────────────────────────────────────────────╯
+feature/cash-rounding · deleted on remote · 2 commits not on any remote
+space select · d delete gone · [ ] tabs · z zoom · esc back · ? help

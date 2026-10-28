@@ -1,0 +1,24 @@
+gitdrift  ~/code/work                            6 repos · 3 behind · 2 need attention · 2 only here
+╭─ 1 Repos ────────────────────────────────╮╭─ 4 Diff ─────────────────────────────────────────────╮
+│   REPO          BRANCH     LOCAL UPSTREAM││                                                      │
+│ ! billing       feature/v…       ok      ││                                                      │
+│▸! payments      feature/c… *2    ↑3↓12   ││                                                      │
+│ ↓ api-gateway   main             ↓12     ││                                                      │
+│ ↓ notifications main             ↓4      ││                                                      │
+│ ✓ auth          main             ok      ││                                                      │
+│ ✓ infra         main             ok      ││                                                      │
+│                                          ││                                                      │
+│                                          ││                                                      │
+│                                          ││                                                      │
+│                                          ││                                                      │
+│                                          ││                                                      │
+│                                          ││                                                      │
+╰──────────────────────────────────────────╯│                                                      │
+╭─ 2 [Incoming 12]  Base  Loc  Br ─────────╮│                                                      │
+│ loading…                                 ││                                                      │
+╰──────────────────────────────────────────╯│                                                      │
+╭─ 3 Files ────────────────────────────────╮│                                                      │
+│ loading…                                 ││                                                      │
+╰──────────────────────────────────────────╯╰──────────────────────────────────────────────────────╯
+payments · base origin/main (auto) · diverged · local changes · 27 behind origin/main
+space select · p pull · P pull all safe · r/R refresh · b base · z zoom · tab pane · ? help

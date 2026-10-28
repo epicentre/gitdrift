@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("# branch.oid 6c4192ae5b3697ad46894bd8ee1ff68a37ffdb55\x00# branch.head main\x00# branch.upstream origin/main\x00# branch.ab +1 -0\x00u UU N... 100644 100644 100644 100644 ce013625030ba8dba906f756967f9e9ca394464a ba2906d0666cf726c7eaadd2cd3db615dedfdf3a e45c9c2666d44e0327c1f9c239a74c508336053e README.md\x00")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("# branch.oid (initial)\x00# branch.head main\x00")

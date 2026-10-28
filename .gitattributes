@@ -1,0 +1,2 @@
+*.golden -text
+* text=auto eol=lf

@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+.agents/
+.claude/
+docs/
+.superpowers/
+
+skills-lock.json
+
+/bin/
+/dist/
+/gdrift
+coverage.out
+coverage.html
+*.test
+*.out
+.superpowers/
+/demo/

@@ -1,0 +1,24 @@
+gitdrift  ~/code/work                                                                    6 repos · 3 behind · 2 need attention · 2 only here
+╭─ 1 Repos ─────────────────────────────────────────────────╮╭─ 4 Diff ────────────────────────────────────────────────────────────────────╮
+│ ! billing       feature/v…       ok       base↓27         ││                                                                             │
+│▸! payments      feature/c… *2    ↑3↓12    base↓27 deps mig││                                                                             │
+│   … 4 more                                                ││                                                                             │
+╰───────────────────────────────────────────────────────────╯│                                                                             │
+╭─ 2 Incoming 12  Base 27  Local 2  [Branches ✂2 ⌂6] ───────╮│                                                                             │
+│ GONE · deleted on remote                                  ││                                                                             │
+│ [ ╭─ Gone branches in payments ──────────────────────────────────────────────────────────────────────────────────────────────────────╮   │
+│▸[ │ deleted feature/cash-rounding (was e4f5a6b) · restore: git branch feature/cash-rounding e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3 │   │
+│ ON│ skipped feature/qr-login: branch changed since review                                                                            │   │
+│   │                                                                                                                                  │   │
+│   │ press any key to close                                                                                                           │   │
+│   ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯   │
+╰───────────────────────────────────────────────────────────╯│                                                                             │
+╭─ 3 Only here · feature/qr-login ──────────────────────────╮│                                                                             │
+│ no commits only on this machine                           ││                                                                             │
+│                                                           ││                                                                             │
+│                                                           ││                                                                             │
+│                                                           ││                                                                             │
+│                                                           ││                                                                             │
+╰───────────────────────────────────────────────────────────╯╰─────────────────────────────────────────────────────────────────────────────╯
+feature/qr-login · deleted on remote · 0 commits not on any remote
+space select · d delete gone · [ ] tabs · z zoom · esc back · ? help
