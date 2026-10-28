@@ -138,24 +138,38 @@ bump_deps() {
 	commit "$1" "$2" "chore: update dependencies"
 }
 
+# repo_dir <name>: where the work clone of a repository lives. The demo
+# workspace nests most repositories in folders, one directly in the root.
+repo_dir() {
+	case $1 in
+	payments | billing | ledger | search | auth) echo "$work/services/$1" ;;
+	api-gateway | notifications | mobile-bff) echo "$work/services/platform/$1" ;;
+	web-app | design-system) echo "$work/web/$1" ;;
+	infra) echo "$work/tools/$1" ;;
+	*) echo "$work/$1" ;;
+	esac
+}
+
 # new_repo <name> <age>: a bare remote plus a work clone on main with a few
 # base commits pushed to it. Prints nothing.
 new_repo() {
-	local name=$1 age=$2
+	local name=$1 age=$2 dir
+	dir=$(repo_dir "$name")
+	mkdir -p "$(dirname "$dir")"
 	git init -q --bare "$remotes/$name.git"
-	git init -q "$work/$name"
-	git -C "$work/$name" remote add origin "$remotes/$name.git"
-	save "$work/$name" "$age" "chore: initial commit" README.md "# $name"
-	put "$work/$name" go.mod "module example.com/$name
+	git init -q "$dir"
+	git -C "$dir" remote add origin "$remotes/$name.git"
+	save "$dir" "$age" "chore: initial commit" README.md "# $name"
+	put "$dir" go.mod "module example.com/$name
 
 go 1.24"
-	save "$work/$name" "$age" "chore: add project layout" "cmd/$name/main.go" \
+	save "$dir" "$age" "chore: add project layout" "cmd/$name/main.go" \
 		"package main
 
 func main() {}"
-	save "$work/$name" "$age" "ci: add continuous integration" ci/pipeline.txt "ci"
-	git -C "$work/$name" push -q -u origin main
-	git -C "$work/$name" remote set-head origin main >/dev/null
+	save "$dir" "$age" "ci: add continuous integration" ci/pipeline.txt "ci"
+	git -C "$dir" push -q -u origin main
+	git -C "$dir" remote set-head origin main >/dev/null
 }
 
 # pusher <name>: clone the remote into a scratch directory so other people's
@@ -170,7 +184,7 @@ pusher() {
 # Feature branch ahead 3 and behind 12 of its upstream, 27 behind its base,
 # local changes, a stash, two gone branches (one squash-merged and carrying
 # 2 local-only commits) and incoming dependency and migration files.
-p=$work/payments
+p=$(repo_dir payments)
 new_repo payments "60 days ago"
 save "$p" "45 days ago" "feat: add refund model" internal/refund/model.go \
 	"package refund
@@ -294,7 +308,7 @@ git -C "$p" fetch -q --prune origin
 
 # ----------------------------------------------------------------- billing
 # Feature branch, up to date with its upstream, 27 behind its base.
-p=$work/billing
+p=$(repo_dir billing)
 new_repo billing "50 days ago"
 git -C "$p" switch -q -c feature/invoice-export
 save "$p" "5 days ago" "feat: add invoice export" internal/invoice/export.go \
@@ -317,7 +331,7 @@ git -C "$p" fetch -q --prune origin
 
 # -------------------------------------------------------------- api-gateway
 # On main, behind 12, with an incoming dependency bump.
-p=$work/api-gateway
+p=$(repo_dir api-gateway)
 new_repo api-gateway "40 days ago"
 pp=$(pusher api-gateway)
 for r in users orders invoices payments search health ready metrics auth sessions webhooks; do
@@ -334,7 +348,7 @@ git -C "$p" fetch -q --prune origin
 
 # ----------------------------------------------------------- notifications
 # On main, behind 4, with an incoming migration and an env example.
-p=$work/notifications
+p=$(repo_dir notifications)
 new_repo notifications "35 days ago"
 pp=$(pusher notifications)
 digest_go() {
@@ -354,7 +368,7 @@ git -C "$p" fetch -q --prune origin
 
 # -------------------------------------------------------------------- auth
 # Up to date, one commit that is not pushed.
-p=$work/auth
+p=$(repo_dir auth)
 new_repo auth "30 days ago"
 save "$p" "2 hours ago" "feat: add session timeout" internal/session/timeout.go \
 	"package session
@@ -366,7 +380,7 @@ const Timeout = 30 * time.Minute"
 
 # ------------------------------------------------------------------- infra
 # Up to date, three branches deleted on the remote after being merged.
-p=$work/infra
+p=$(repo_dir infra)
 new_repo infra "55 days ago"
 day=14
 for b in dns-cleanup cache-tuning log-retention; do
@@ -388,7 +402,7 @@ git -C "$p" fetch -q --prune origin
 # ------------------------------------------------------- up-to-date repos
 age=10
 for name in docs ledger search web-app mobile-bff design-system; do
-	p=$work/$name
+	p=$(repo_dir "$name")
 	new_repo "$name" "$((age + 20)) days ago"
 	save "$p" "$age days ago" "docs: update $name notes" notes/update.txt "$name"
 	git -C "$p" push -q origin main

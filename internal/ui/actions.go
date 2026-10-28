@@ -31,7 +31,10 @@ const (
 	refusedFetch      = fetchFailed
 	refusedNotFetched = "remote not fetched yet: "
 
-	unselected = " unselected: "
+	// unselected follows the name of an unselected repository; for one that
+	// is not safe to pull any more, ": " and the reason follow.
+	unselected             = " unselected"
+	repositoriesUnselected = " repositories unselected"
 )
 
 // result is the outcome of the last pull of a repository as its row and the
@@ -203,18 +206,21 @@ func (m Model) pullRefusal(r row) string {
 	return ""
 }
 
-// askPull opens the pull dialog for every repository that is safe to pull
-// when all is set, else for the selection, else for the cursor's
-// repository.
+// askPull opens the pull dialog for the repositories that are safe to
+// pull among those the Repos pane shows, after the folder tab, the filter
+// and f: every one when all is set, else the selected ones, else the
+// cursor's repository. A repository the user cannot see is never offered.
 func (m *Model) askPull(all bool) {
-	cursor, _ := m.cursorID()
+	rows := m.rowsAt(m.visible())
+	cursor, onRow := m.cursorID()
+	anySelected := slices.ContainsFunc(rows, func(r row) bool { return m.selected[r.snap.Loc.ID] })
 
 	var snaps []drift.Snapshot
 
-	for _, r := range m.rows {
+	for _, r := range rows {
 		id := r.snap.Loc.ID
 
-		wanted := all || m.selected[id] || (len(m.selected) == 0 && id == cursor)
+		wanted := all || m.selected[id] || (!anySelected && onRow && id == cursor)
 		if wanted && m.pullRefusal(r) == "" {
 			snaps = append(snaps, r.snap)
 		}
@@ -339,37 +345,75 @@ func (m *Model) refreshCursor() tea.Cmd {
 	return m.requestRefresh(dir, true)
 }
 
-// refreshAll fetches and re-reads every group and clears every pull result.
+// refreshAll fetches and re-reads the groups of the rows the Repos pane
+// shows, each once and whole, also when only some of its worktrees are
+// shown, and clears the pull results of their rows. Without a folder tab, a
+// filter or f that is every group.
 func (m *Model) refreshAll() tea.Cmd {
-	m.results = nil
+	dirs := make(map[string]bool, len(m.groups))
+	for _, i := range m.visible() {
+		dirs[m.rows[i].snap.Loc.CommonDir] = true
+	}
 
-	cmds := make([]tea.Cmd, 0, len(m.groups))
+	m.results = writable(m.results)
+
+	for _, r := range m.rows {
+		if dirs[r.snap.Loc.CommonDir] {
+			delete(m.results, r.snap.Loc.ID)
+		}
+	}
+
+	cmds := make([]tea.Cmd, 0, len(dirs))
+
 	for _, g := range m.groups {
-		cmds = append(cmds, m.requestRefresh(g.CommonDir, true))
+		if dirs[g.CommonDir] {
+			cmds = append(cmds, m.requestRefresh(g.CommonDir, true))
+		}
 	}
 
 	return tea.Batch(cmds...)
 }
 
-// pruneSelections drops the selected repositories that are no longer safe
-// to pull, saying so in the status line, and the selected gone branches that
-// are gone no more.
-func (m *Model) pruneSelections(snaps []drift.Snapshot) {
-	m.selected, m.goneSel = writable(m.selected), writable(m.goneSel)
+// dropSelections unselects the selected repositories that may not be
+// pulled any more: those the Repos pane no longer shows, so that no pull
+// takes a repository the user cannot see, and those a refresh found not safe
+// to pull. One notice says so for all of them, so that a refresh that does
+// both loses neither: the line of one repository, or how many. The rest of
+// the selection stays.
+func (m *Model) dropSelections() {
+	if len(m.selected) == 0 {
+		return
+	}
+
+	shown := make(map[repo.ID]bool, len(m.rows))
+	for _, i := range m.visible() {
+		shown[m.rows[i].snap.Loc.ID] = true
+	}
+
+	m.selected = writable(m.selected)
 
 	var dropped []string
 
-	for _, s := range snaps {
-		if blockers := drift.PullBlockers(s); len(blockers) > 0 && m.selected[s.Loc.ID] {
-			delete(m.selected, s.Loc.ID)
-
-			dropped = append(dropped, sanitize(s.Loc.Name)+unselected+sanitize(blockers[0]))
+	for _, r := range m.rows {
+		id := r.snap.Loc.ID
+		if !m.selected[id] {
+			continue
 		}
 
-		maps.DeleteFunc(m.goneSel, func(k goneKey, _ bool) bool {
-			return k.commonDir == s.Loc.CommonDir &&
-				!slices.ContainsFunc(s.Work.Gone, func(g repo.GoneBranch) bool { return g.Name == k.branch })
-		})
+		line := repoLabel(r.snap.Loc) + unselected
+
+		switch blockers := drift.PullBlockers(r.snap); {
+		case !shown[id]:
+			// Hidden: the name alone, whatever else changed.
+		case len(blockers) > 0:
+			line += ": " + sanitize(blockers[0])
+		default:
+			continue
+		}
+
+		delete(m.selected, id)
+
+		dropped = append(dropped, line)
 	}
 
 	switch len(dropped) {
@@ -377,7 +421,20 @@ func (m *Model) pruneSelections(snaps []drift.Snapshot) {
 	case 1:
 		m.notice = dropped[0]
 	default:
-		m.notice = strconv.Itoa(len(dropped)) + " repositories unselected"
+		m.notice = strconv.Itoa(len(dropped)) + repositoriesUnselected
+	}
+}
+
+// pruneGoneSelections drops the selected gone branches of the groups of
+// snaps that are gone no more.
+func (m *Model) pruneGoneSelections(snaps []drift.Snapshot) {
+	m.goneSel = writable(m.goneSel)
+
+	for _, s := range snaps {
+		maps.DeleteFunc(m.goneSel, func(k goneKey, _ bool) bool {
+			return k.commonDir == s.Loc.CommonDir &&
+				!slices.ContainsFunc(s.Work.Gone, func(g repo.GoneBranch) bool { return g.Name == k.branch })
+		})
 	}
 }
 
@@ -414,7 +471,7 @@ func (m Model) goneRefusal(s drift.Snapshot, g repo.GoneBranch) string {
 	}
 
 	if wt, ok := m.checkedOutElsewhere(s, g.Name); ok {
-		return refusedCheckedOut + sanitize(wt)
+		return refusedCheckedOut + wt
 	}
 
 	if s.Fetch.OK(g.Remote) {
@@ -429,13 +486,13 @@ func (m Model) goneRefusal(s drift.Snapshot, g repo.GoneBranch) string {
 }
 
 // checkedOutElsewhere names a worktree of the repository of s, other than
-// s, that has branch checked out.
+// s, that has branch checked out, as repoLabel does.
 func (m Model) checkedOutElsewhere(s drift.Snapshot, branch string) (string, bool) {
 	for _, r := range m.rows {
 		o := r.snap
 		if r.loaded && o.Loc.CommonDir == s.Loc.CommonDir && o.Loc.ID != s.Loc.ID &&
 			!o.Status.Detached && o.Status.Branch == branch {
-			return o.Loc.Name, true
+			return repoLabel(o.Loc), true
 		}
 	}
 
@@ -499,9 +556,10 @@ func (m *Model) askDelete() tea.Cmd {
 	return loadDeleteCmd(m.ctx, m.backend, s.Loc, offered)
 }
 
-// deleteLoaded opens the delete dialog once its commits are known, after
-// the open window when there is one. Without the commits there is nothing to
-// confirm: a failed listing only reports the error.
+// deleteLoaded opens the delete dialog once its commits are known. It waits
+// for the open window to close, and for the typing of a filter to end, when
+// there is one (see show). Without the commits there is nothing to confirm:
+// a failed listing only reports the error.
 func (m *Model) deleteLoaded(msg deleteLoadedMsg) {
 	if msg.err != nil {
 		m.notice = errorPrefix + firstLine(msg.err.Error())
@@ -526,13 +584,16 @@ func (m *Model) confirmDelete(d deleteConfirm) tea.Cmd {
 	return deleteCmd(m.ctx, m.backend, d.loc, branches)
 }
 
-// deleteDone shows the results of a deletion, after the open window when
-// there is one: they carry the restore commands and must not be lost.
+// deleteDone shows the results of a deletion. They wait for the open window
+// to close, and for the typing of a filter to end, when there is one (see
+// show): they carry the restore commands and must not be lost.
 func (m *Model) deleteDone(msg deleteDoneMsg) { m.show(deleteResult(msg)) }
 
-// show opens d, or queues it behind the open window.
+// show opens d, or queues it behind the open window. While a filter is
+// typed it waits until the typing ends: the typed keys must never reach a
+// window, where y confirms.
 func (m *Model) show(d dialog) {
-	if m.dialog == nil {
+	if m.dialog == nil && !m.filtering {
 		m.openDialog(d)
 
 		return

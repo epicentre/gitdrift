@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/epicentre/gitdrift/internal/badge"
 	"github.com/epicentre/gitdrift/internal/repo"
@@ -214,13 +215,38 @@ func CategoryOf(s Snapshot) Category {
 	}
 }
 
-// Sort orders snapshots by category, then name, then path. It is stable.
+// Sort orders snapshots by category, then by folder, name and path (see
+// CompareLocations). It is stable.
 func Sort(snaps []Snapshot) {
 	slices.SortStableFunc(snaps, func(a, b Snapshot) int {
-		return cmp.Or(
-			cmp.Compare(CategoryOf(a), CategoryOf(b)),
-			cmp.Compare(a.Loc.Name, b.Loc.Name),
-			cmp.Compare(a.Loc.Path, b.Loc.Path),
-		)
+		return cmp.Or(cmp.Compare(CategoryOf(a), CategoryOf(b)), CompareLocations(a.Loc, b.Loc))
 	})
+}
+
+// CompareLocations orders repositories by folder, then name, then path.
+// Folders compare one slash-separated name at a time, so that the root ("")
+// comes first and a folder's subfolders follow it before a sibling whose
+// name extends it: services, services/platform, services-x.
+func CompareLocations(a, b repo.Location) int {
+	return cmp.Or(
+		compareFolders(a.Folder, b.Folder),
+		cmp.Compare(a.Name, b.Name),
+		cmp.Compare(a.Path, b.Path),
+	)
+}
+
+// compareFolders orders slash-separated folders one name at a time.
+func compareFolders(a, b string) int {
+	for a != "" && b != "" {
+		nameA, restA, _ := strings.Cut(a, "/")
+		nameB, restB, _ := strings.Cut(b, "/")
+
+		if c := cmp.Compare(nameA, nameB); c != 0 {
+			return c
+		}
+
+		a, b = restA, restB
+	}
+
+	return cmp.Compare(a, b)
 }

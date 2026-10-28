@@ -1,8 +1,13 @@
 package ui
 
 import (
+	"os"
+	"os/exec"
+	"regexp"
+	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/google/go-cmp/cmp"
 )
@@ -179,6 +184,13 @@ func TestColumnLayoutRender(t *testing.T) {
 			6,
 			"…字  x",
 		},
+		{
+			"a column's own cut shortens a value too wide for it",
+			[]column{{width: 17, min: 10, shrink: 1, cut: cutFolder}, {width: 2}},
+			[]string{"services/platform", "ok"},
+			14,
+			"…/platform  ok",
+		},
 	}
 
 	for _, tt := range tests {
@@ -265,5 +277,80 @@ func TestInclude(t *testing.T) {
 
 	if got := columnsWidth(cols); got != 12 {
 		t.Errorf("columnsWidth() = %d, want 12", got)
+	}
+}
+
+// TestEastAsianWidths draws with East Asian widths, where "…" and other
+// ambiguous-width runes are two cells wide and a cut can come out wider than
+// asked: place still draws every value in exactly its width, and the view
+// never panics, at every width of the resize sweep, in the states whose
+// cells are cut from the left (paths, folders) or from the right. Box
+// drawing is two cells wide there too, so the view is not held to the screen
+// width. x/ansi reads RUNEWIDTH_EASTASIAN once at init, so the test runs
+// again in a child process of this test binary with it set.
+func TestEastAsianWidths(t *testing.T) {
+	t.Parallel()
+
+	if !eastAsianWidths() {
+		runWithEastAsianWidths(t)
+
+		return
+	}
+
+	if w := ansi.StringWidth("…"); w != 2 {
+		t.Fatalf("RUNEWIDTH_EASTASIAN is set but … is %d cells wide, want 2", w)
+	}
+
+	for _, text := range []string{pathTotal, "漢字漢字漢字", "…", "a…b", ""} {
+		for _, keepEnd := range []bool{false, true} {
+			for width := range 25 {
+				if w := ansi.StringWidth(place(token{text: text}, width, alignLeft, keepEnd)); w != width {
+					t.Errorf("place(%q, %d, keepEnd %t) is %d cells wide", text, width, keepEnd, w)
+				}
+			}
+		}
+	}
+
+	files, fake := newTestModel(t, fixtureSnapshots(fixedNow), 120, 40)
+	fake.setDetail(paymentsDetail(fixedNow))
+	files = pressSettle(t, loadAll(t, files, fake), keyDown, "3")
+
+	wide := fixtureWide(fixedNow)
+	wide.Loc.Folder = folderWide
+	m, fake := newTestModel(t, append(headerSnapshots(fixedNow), fixtureLong(nameLong, branchLong, fixedNow), wide), 120, 40)
+	fake.setDetail(wideDetail(fixedNow))
+	base := moveTo(t, loadAll(t, m, fake), nameWide)
+	base = settle(t, base, base.reload())
+
+	states := []Model{
+		files, base, press(t, base, "z"), press(t, base, "2"), press(t, base, "3"),
+		pressSettle(t, base, "2", "["), press(t, base, "]"), typeFilter(t, base, folderWide),
+	}
+
+	for width := minWidth; width <= 200; width++ {
+		for _, st := range states {
+			for _, height := range []int{minHeight, 40} {
+				_ = step(t, st, tea.WindowSizeMsg{Width: width, Height: height}).View()
+			}
+		}
+	}
+}
+
+// runWithEastAsianWidths runs the test t again in a child process of this
+// test binary with RUNEWIDTH_EASTASIAN=1, set on the command and never on
+// this process, and fails t with the child's output unless the child ran the
+// test and it passed.
+func runWithEastAsianWidths(t *testing.T) {
+	t.Helper()
+
+	name := t.Name()
+
+	//nolint:gosec // re-runs this test binary with the name of a test of its own; no shell is involved
+	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^"+regexp.QuoteMeta(name)+"$", "-test.count=1", "-test.v")
+
+	cmd.Env = append(os.Environ(), "RUNEWIDTH_EASTASIAN=1")
+
+	if out, err := cmd.CombinedOutput(); err != nil || !strings.Contains(string(out), "--- PASS: "+name+" (") {
+		t.Fatalf("%s with RUNEWIDTH_EASTASIAN=1: %v\n%s", name, err, out)
 	}
 }

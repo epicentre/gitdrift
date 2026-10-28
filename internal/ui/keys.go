@@ -10,7 +10,7 @@ type keyMap struct {
 	PrevTab, NextTab, Zoom                     key.Binding
 
 	Select, Pull, PullAll, Refresh, RefreshAll key.Binding
-	Base, Delete, Filter, Help, Quit           key.Binding
+	Base, Delete, OnlyHere, Filter, Help, Quit key.Binding
 
 	// Dialog keys. Each dialog names its keys in its footer, so the help
 	// leaves them out. Erase and the arrows serve the base picker, where
@@ -33,19 +33,20 @@ func defaultKeyMap() keyMap {
 		PrevPane:  key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("shift+tab", "previous pane")),
 		FocusPane: key.NewBinding(key.WithKeys("1", "2", "3", "4"), key.WithHelp("1-4", "focus pane")),
 		Enter:     key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open in the next pane")),
-		Back:      key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back or leave zoom")),
-		PrevTab:   key.NewBinding(key.WithKeys("["), key.WithHelp("[", "previous commits tab")),
-		NextTab:   key.NewBinding(key.WithKeys("]"), key.WithHelp("]", "next commits tab")),
+		Back:      key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back, leave zoom or clear filter")),
+		PrevTab:   key.NewBinding(key.WithKeys("["), key.WithHelp("[", "previous tab")),
+		NextTab:   key.NewBinding(key.WithKeys("]"), key.WithHelp("]", "next tab")),
 		Zoom:      key.NewBinding(key.WithKeys("z"), key.WithHelp("z", "zoom pane")),
 
 		Select:     key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "select for pull")),
 		Pull:       key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "pull selected or current repo")),
-		PullAll:    key.NewBinding(key.WithKeys("P"), key.WithHelp("P", "pull all safe repos")),
-		Refresh:    key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh current repo")),
-		RefreshAll: key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "refresh all repos")),
+		PullAll:    key.NewBinding(key.WithKeys("P"), key.WithHelp("P", "pull every safe repository shown")),
+		Refresh:    key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh the current repository")),
+		RefreshAll: key.NewBinding(key.WithKeys("R"), key.WithHelp("R", "refresh the repositories shown")),
 		Base:       key.NewBinding(key.WithKeys("b"), key.WithHelp("b", "choose base branch")),
 		Delete:     key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete gone branches")),
-		Filter:     key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "only-here filter")),
+		OnlyHere:   key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "only-here filter")),
+		Filter:     key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter repositories")),
 		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		Quit:       key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
 
@@ -85,6 +86,6 @@ func (k keyMap) FullHelp() [][]key.Binding {
 		{k.Up, k.Down, k.PageUp, k.PageDown, k.Home, k.End},
 		{k.NextPane, k.PrevPane, k.FocusPane, k.Enter, k.Back, k.PrevTab, k.NextTab, k.Zoom},
 		{k.Select, k.Pull, k.PullAll, k.Refresh, k.RefreshAll},
-		{k.Base, k.Delete, k.Filter, k.Help, k.Quit},
+		{k.Base, k.Delete, k.OnlyHere, k.Filter, k.Help, k.Quit},
 	}
 }

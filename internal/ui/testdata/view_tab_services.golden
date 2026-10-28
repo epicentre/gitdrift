@@ -1,0 +1,30 @@
+gitdrift  ~/code/work                                                                              7 repos · 3 behind · 2 need attention · 2 only here
+╭─ 1  All 7  [services 4]  web 2 ────────────────────────────────╮╭─ 4 Diff ─────────────────────────────────────────────────────────────────────────╮
+│   REPO          FOLDER   BRANCH          LOCAL UPSTREAM BASE   ││                                                                                  │
+│ ! billing                feature/vat           ok       base↓27││                                                                                  │
+│▸! payments               feature/checko… *2    ↑3↓12    base↓27││                                                                                  │
+│ ↓ notifications platform main                  ↓4              ││                                                                                  │
+│ ✓ search        platform main                  ok              ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+╰────────────────────────────────────────────────────────────────╯│                                                                                  │
+╭─ 2 [Incoming 12]  Base 27  Local 2  Branches ✂2 ⌂6 ────────────╮│                                                                                  │
+│ loading…                                                       ││                                                                                  │
+╰────────────────────────────────────────────────────────────────╯│                                                                                  │
+╭─ 3 Files ──────────────────────────────────────────────────────╮│                                                                                  │
+│ loading…                                                       ││                                                                                  │
+╰────────────────────────────────────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────────────────╯
+services/payments · base origin/main (auto) · diverged · local changes · 27 behind origin/main
+space select · p pull · P pull all safe · [ ] folders · / filter · r/R refresh · b base · z zoom · ? help

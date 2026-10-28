@@ -40,7 +40,7 @@ func pushedClone(t *testing.T, env *gittest.Env, name string) (clone, mate *gitt
 func discover(t *testing.T, env *gittest.Env) []workspace.Group {
 	t.Helper()
 
-	groups, err := workspace.Discover(t.Context(), env.Runner(), env.WorkDir())
+	groups, err := workspace.Discover(t.Context(), env.Runner(), env.WorkDir(), workspace.DiscoverOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

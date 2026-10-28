@@ -1,0 +1,30 @@
+gitdrift  ~/code/work                                                                              7 repos · 3 behind · 2 need attention · 2 only here
+╭─ 1  [All 2/7]  services 2/4  web 0/2 ──────────────────────────╮╭─ 4 Diff ─────────────────────────────────────────────────────────────────────────╮
+│   REPO          FOLDER            BRANCH UPSTREAM INCOMING HERE││                                                                                  │
+│▸↓ notifications services/platform main   ↓4       mig env      ││                                                                                  │
+│ ✓ search        services/platform main   ok                ⌂1  ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+│                                                                ││                                                                                  │
+╰────────────────────────────────────────────────────────────────╯│                                                                                  │
+╭─ 2 [Incoming 4]  Base  Local  Branches ────────────────────────╮│                                                                                  │
+│ loading…                                                       ││                                                                                  │
+╰────────────────────────────────────────────────────────────────╯│                                                                                  │
+╭─ 3 Files ──────────────────────────────────────────────────────╮│                                                                                  │
+│ loading…                                                       ││                                                                                  │
+╰────────────────────────────────────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────────────────╯
+filter: plat▏
+space select · p pull · P pull all safe · [ ] folders · / filter · r/R refresh · b base · z zoom · ? help

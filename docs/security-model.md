@@ -37,11 +37,16 @@ There is no telemetry.
 | Remote responses and error output | untrusted | The remote's operator writes them. |
 
 **Run gitdrift only on folders whose repositories you would run `git status`
-in.** gitdrift runs `git status` in every repository it lists. A repository's
-own `.git/config` can make git run programs (`core.fsmonitor`, for example).
-git's `safe.directory` check refuses repositories owned by another user, and
-gitdrift skips those; repositories you own are trusted like any other git
-command you run in them.
+in.** gitdrift searches the folder you start it in down to the depth limit
+(5 levels by default, `--depth`) and runs `git status` in every repository it
+lists, however deep. Starting it in a large tree such as your home directory
+walks that whole tree, and on macOS can trigger permission prompts for folders
+such as Documents; start it in a projects folder or lower `--depth`.
+Below the folder itself, the search starts git only in directories that have a
+`.git` entry. A repository's own `.git/config` can make git run programs
+(`core.fsmonitor`, for example). git's `safe.directory` check refuses
+repositories owned by another user, and gitdrift skips those; repositories you
+own are trusted like any other git command you run in them.
 
 ## Protections
 

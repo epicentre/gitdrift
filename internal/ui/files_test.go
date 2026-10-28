@@ -281,6 +281,7 @@ func TestFilesPaneKeepsColumnsWhileScrolling(t *testing.T) {
 
 func TestFilesPaneUsesRepoBadgeRules(t *testing.T) {
 	t.Parallel()
+	skipEastAsianWidths(t)
 
 	snaps := fixtureSnapshots(fixedNow)
 

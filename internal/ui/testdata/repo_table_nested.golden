@@ -1,0 +1,9 @@
+|  REPO                  FOLDER                  BRANCH                 LOCAL         UPSTREAM         VS BASE       INCOMING         HERE      GONE      UPDATED|
+|! billing               services                feature/vat            clean         up to date       ↓27           –                –         –         1d ago |
+|! payments              services                feature/checkout       2 files       ↑3 ↓12           ↓27           deps · mig       6         2         5h ago |
+|↓ notifications         services/platform       main                   clean         ↓4               –             mig · env        –         –         3d ago |
+|↓ storefront            web                     main                   clean         ↓12              –             deps             –         –         2d ago |
+|✓ docs                                          main                   clean         up to date       –             –                –         –         2w ago |
+|✓ search                services/platform       main                   clean         up to date       –             –                1         –         2w ago |
+|✓ admin                 web                     main                   clean         up to date       –             –                –         3         2w ago |
+|  ledger                web                                            fetching…                                                                                |

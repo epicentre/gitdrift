@@ -48,7 +48,7 @@ func TestStartRequiresTerminal(t *testing.T) {
 
 	t.Cleanup(func() { _ = f.Close() })
 
-	err = start(t.Context(), t.TempDir(), f)
+	err = start(t.Context(), Config{Dir: t.TempDir(), Depth: 5}, f)
 	if want := "an interactive terminal is required"; err == nil || err.Error() != want {
 		t.Fatalf("start err = %v, want %q", err, want)
 	}
@@ -59,7 +59,7 @@ func TestStartNoRepos(t *testing.T) {
 
 	dir := resolved(t, t.TempDir())
 
-	err := start(t.Context(), dir, devNull(t))
+	err := start(t.Context(), Config{Dir: dir, Depth: 5}, devNull(t))
 	if want := "no git repositories found in " + dir; err == nil || err.Error() != want {
 		t.Fatalf("start err = %v, want %q", err, want)
 	}
@@ -80,7 +80,7 @@ func TestStartOldGit(t *testing.T) {
 
 	t.Setenv("PATH", bin)
 
-	err := start(t.Context(), t.TempDir(), devNull(t))
+	err := start(t.Context(), Config{Dir: t.TempDir(), Depth: 5}, devNull(t))
 	if want := "git 2.30 or newer is required (found 2.29.2)"; err == nil || err.Error() != want {
 		t.Fatalf("start err = %v, want %q", err, want)
 	}
@@ -108,7 +108,7 @@ func TestRunDashboard(t *testing.T) {
 			clone.Commit("README.md", "hello\n", "initial")
 			clone.Git("push", "--quiet", "-u", "origin", "main")
 
-			groups, err := workspace.Discover(t.Context(), env.Runner(), env.WorkDir())
+			groups, err := workspace.Discover(t.Context(), env.Runner(), env.WorkDir(), workspace.DiscoverOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -168,7 +168,7 @@ func TestRunDashboardStopsFetchOnQuit(t *testing.T) {
 
 	clone.Git("config", "--local", "remote.origin.uploadpack", script)
 
-	groups, err := workspace.Discover(t.Context(), env.Runner(), env.WorkDir())
+	groups, err := workspace.Discover(t.Context(), env.Runner(), env.WorkDir(), workspace.DiscoverOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

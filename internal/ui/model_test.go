@@ -49,13 +49,21 @@ const (
 	titleCommitsTabs = "2 [Incoming"
 )
 
+// eastAsianWidths reports whether RUNEWIDTH_EASTASIAN turns on East Asian
+// widths in this process: x/ansi reads it once at init and then draws
+// ambiguous-width runes (· – … ↓ ● ▸) two cells wide.
+func eastAsianWidths() bool {
+	ea, err := strconv.ParseBool(os.Getenv("RUNEWIDTH_EASTASIAN"))
+
+	return err == nil && ea
+}
+
 // skipEastAsianWidths skips a test that asserts exact cell widths when
-// RUNEWIDTH_EASTASIAN turns on East Asian widths: x/ansi reads it once at
-// init and then draws ambiguous-width runes (· – … ↓ ● ▸) two cells wide.
+// East Asian widths are on (see eastAsianWidths).
 func skipEastAsianWidths(t *testing.T) {
 	t.Helper()
 
-	if ea, err := strconv.ParseBool(os.Getenv("RUNEWIDTH_EASTASIAN")); err == nil && ea {
+	if eastAsianWidths() {
 		t.Skip("RUNEWIDTH_EASTASIAN is set: ambiguous-width runes are two cells wide, so exact widths and golden files do not apply")
 	}
 }
@@ -138,18 +146,19 @@ func press(t *testing.T, m Model, keys ...string) Model {
 
 func keyPress(name string) tea.KeyPressMsg {
 	special := map[string]tea.KeyPressMsg{
-		keyUp:       {Code: tea.KeyUp},
-		keyDown:     {Code: tea.KeyDown},
-		keyPgUp:     {Code: tea.KeyPgUp},
-		keyPgDown:   {Code: tea.KeyPgDown},
-		keyHome:     {Code: tea.KeyHome},
-		keyEnd:      {Code: tea.KeyEnd},
-		keyTab:      {Code: tea.KeyTab},
-		keyShiftTab: {Code: tea.KeyTab, Mod: tea.ModShift},
-		keyEnter:    {Code: tea.KeyEnter},
-		keyEsc:      {Code: tea.KeyEscape},
-		"space":     {Code: tea.KeySpace, Text: " "},
-		"ctrl+c":    {Code: 'c', Mod: tea.ModCtrl},
+		keyUp:        {Code: tea.KeyUp},
+		keyDown:      {Code: tea.KeyDown},
+		keyPgUp:      {Code: tea.KeyPgUp},
+		keyPgDown:    {Code: tea.KeyPgDown},
+		keyHome:      {Code: tea.KeyHome},
+		keyEnd:       {Code: tea.KeyEnd},
+		keyTab:       {Code: tea.KeyTab},
+		keyShiftTab:  {Code: tea.KeyTab, Mod: tea.ModShift},
+		keyEnter:     {Code: tea.KeyEnter},
+		keyEsc:       {Code: tea.KeyEscape},
+		keyBackspace: {Code: tea.KeyBackspace},
+		"space":      {Code: tea.KeySpace, Text: " "},
+		"ctrl+c":     {Code: 'c', Mod: tea.ModCtrl},
 	}
 
 	if k, ok := special[name]; ok {
@@ -652,19 +661,23 @@ func TestViewResizeSequence(t *testing.T) {
 }
 
 // TestViewResizeSweep draws every width from 60 to 200 at sampled heights,
-// plus the sizes below the minimum, with the Repos pane compact and zoomed
-// and with the Commits, Files and Branches lists focused. The repository
-// under the cursor and its lists carry wide text: fullwidth letters, East
-// Asian characters and emoji. The view never panics and never draws beyond
-// the screen, every line of every pane is exactly the pane's inner width,
-// and every Repos row is exactly that wide before the pane pads it. Each
-// width runs in its own subtest from the same models, so the race detector
-// also checks that resizing never writes to shared state.
+// plus the sizes below the minimum, with the Repos pane compact and zoomed,
+// in the All tab and in its folder's tab, filtered to its folder and to no
+// row, and with the Commits, Files and Branches lists focused. The
+// repository under the cursor, its folder (and so its folder tab and the
+// filter) and its lists carry wide text: fullwidth
+// letters, East Asian characters and emoji. The view never panics and never
+// draws beyond the screen, every line of every pane is exactly the pane's
+// inner width, and every Repos row is exactly that wide before the pane pads
+// it. Each width runs in its own subtest from the same models, so the race
+// detector also checks that resizing never writes to shared state.
 func TestViewResizeSweep(t *testing.T) {
 	t.Parallel()
 	skipEastAsianWidths(t)
 
-	snaps := append(headerSnapshots(fixedNow), fixtureLong(nameLong, branchLong, fixedNow), fixtureWide(fixedNow))
+	wide := fixtureWide(fixedNow)
+	wide.Loc.Folder = folderWide
+	snaps := append(headerSnapshots(fixedNow), fixtureLong(nameLong, branchLong, fixedNow), wide)
 	m, fake := newTestModel(t, snaps, 120, 40)
 	fake.setDetail(wideDetail(fixedNow))
 
@@ -685,7 +698,12 @@ func TestViewResizeSweep(t *testing.T) {
 		{"zoomed", press(t, base, "z"), repos},
 		{"commits", press(t, base, "2"), detail},
 		{"files", press(t, base, "3"), detail},
-		{"branches", pressSettle(t, base, "[", "2"), detail},
+		{"branches", pressSettle(t, base, "2", "["), detail},
+		{"folder tab", press(t, base, "]"), repos},
+		{"folder tab zoomed", press(t, base, "]", "z"), repos},
+		{"filtered", typeFilter(t, base, folderWide), repos},
+		{"no match", typeFilter(t, base, filterNothing), repos},
+		{"no match zoomed", press(t, typeFilter(t, base, filterNothing), keyEnter, "z"), repos},
 	}
 
 	t.Run("below the minimum", func(t *testing.T) {
@@ -750,24 +768,25 @@ func assertViewFits(t *testing.T, m Model, size tea.WindowSizeMsg) {
 	inner := lay.Repos.W - 2
 	for i, l := range m.reposLines(lay.Repos) {
 		w := ansi.StringWidth(l)
-		isMore := strings.Contains(ansi.Strip(l), " more")
+		// "… N more" and the line in place of no rows are not padded.
+		isNote := strings.Contains(ansi.Strip(l), " more") || len(m.visible()) == 0
 
-		if w > inner || (!isMore && w != inner) {
+		if w > inner || (!isNote && w != inner) {
 			t.Fatalf("%s: repos line %d is %d cells wide, want %d:\n%s", at, i, w, inner, ansi.Strip(l))
 		}
 	}
 }
 
 // assertReposHeader checks that the compact header names exactly the
-// columns shown, every title whole.
+// columns shown, every title whole. A pane without rows has no header.
 func assertReposHeader(t *testing.T, at string, m Model, lay Layout) {
 	t.Helper()
 
-	if m.tableMode() || !m.reposHasHeader(lay.Repos) {
+	if m.tableMode() || !m.reposHasHeader(lay.Repos) || len(m.visible()) == 0 {
 		return
 	}
 
-	l := newCompactLayout(m.rowsAt(m.visible()), lay.Repos.W-2-compactGutter, m.styles)
+	l := newCompactLayout(m.rowsAt(m.visible()), m.folderTab, lay.Repos.W-2-compactGutter, m.styles)
 
 	var want []string
 
@@ -971,6 +990,7 @@ func TestTildePath(t *testing.T) {
 
 func TestStatusLine(t *testing.T) {
 	t.Parallel()
+	skipEastAsianWidths(t)
 
 	noBase := tracking("scratch", branchMain, fixedNow)
 	noBase.Base = repo.Base{}
@@ -1031,36 +1051,44 @@ func TestFooterLine(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		focus Pane
-		zoom  bool
-		tab   Tab
-		want  string
+		name          string
+		focus         Pane
+		zoom, folders bool
+		tab           Tab
+		want          string
 	}{
 		{
-			"repos", PaneRepos, false, TabBranches,
+			"repos", PaneRepos, false, false, TabBranches,
 			"space select · p pull · P pull all safe · r/R refresh · b base · z zoom · tab pane · ? help",
 		},
 		{
-			"repos zoomed", PaneRepos, true, TabIncoming,
+			"repos zoomed", PaneRepos, true, false, TabIncoming,
 			"space select · p pull · P pull all safe · f only-here filter · z unzoom · ? help",
 		},
-		{"commits", PaneCommits, false, TabIncoming, "[ ] tabs · enter files · z zoom · esc back · ? help"},
-		{"commits base", PaneCommits, true, TabBase, "[ ] tabs · enter files · z zoom · esc back · ? help"},
-		{"commits local", PaneCommits, false, TabLocal, "[ ] tabs · enter files · z zoom · esc back · ? help"},
 		{
-			"commits branches", PaneCommits, false, TabBranches,
+			"repos with folders", PaneRepos, false, true, TabIncoming,
+			"space select · p pull · P pull all safe · [ ] folders · / filter · r/R refresh · b base · z zoom · ? help",
+		},
+		{
+			"repos zoomed with folders", PaneRepos, true, true, TabBranches,
+			"space select · p pull · P pull all safe · f only-here filter · [ ] folders · / filter · z unzoom · ? help",
+		},
+		{"commits", PaneCommits, false, false, TabIncoming, "[ ] tabs · enter files · z zoom · esc back · ? help"},
+		{"commits base with folders", PaneCommits, true, true, TabBase, "[ ] tabs · enter files · z zoom · esc back · ? help"},
+		{"commits local", PaneCommits, false, false, TabLocal, "[ ] tabs · enter files · z zoom · esc back · ? help"},
+		{
+			"commits branches", PaneCommits, false, true, TabBranches,
 			"space select · d delete gone · [ ] tabs · z zoom · esc back · ? help",
 		},
-		{"files", PaneFiles, true, TabBranches, "enter diff · [ ] tabs · z zoom · esc back · ? help"},
-		{"diff", PaneDiff, false, TabIncoming, "↑↓ scroll · pgup/pgdn page · z zoom · esc back · ? help"},
+		{"files", PaneFiles, true, true, TabBranches, "enter diff · [ ] tabs · z zoom · esc back · ? help"},
+		{"diff", PaneDiff, false, true, TabIncoming, "↑↓ scroll · pgup/pgdn page · z zoom · esc back · ? help"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := ansi.Strip(footerLine(tt.focus, tt.zoom, tt.tab, 120, newStyles(true))); got != tt.want {
+			if got := ansi.Strip(footerLine(tt.focus, tt.zoom, tt.folders, tt.tab, 120, newStyles(true))); got != tt.want {
 				t.Errorf("footerLine() = %q, want %q", got, tt.want)
 			}
 		})
@@ -1084,7 +1112,7 @@ func TestKeyMapHelp(t *testing.T) {
 
 	want := []string{
 		"up", "k", "down", "j", "pgup", "pgdown", "home", "g", "end", "G", "tab", "shift+tab",
-		"1", "2", "3", "4", "enter", "esc", "[", "]", "z", "space", "p", "P", "r", "R", "b", "d", "f", "?",
+		"1", "2", "3", "4", "enter", "esc", "[", "]", "z", "space", "p", "P", "r", "R", "b", "d", "f", "/", "?",
 		"q", "ctrl+c",
 	}
 

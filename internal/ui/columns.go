@@ -50,6 +50,10 @@ type column struct {
 	// keepEnd cuts a value too wide for the column from the left, so that
 	// its end stays visible.
 	keepEnd bool
+	// cut, when set, shortens a value too wide for the column to at most
+	// width cells, in place of the cut with "…" at the end or, with keepEnd,
+	// at the start.
+	cut func(s string, width int) string
 	// style draws the column's values.
 	style lipgloss.Style
 }
@@ -326,6 +330,10 @@ func (l columnLayout) renderSpan(cells []string, from, to int, value token, a al
 			cell.text = cells[i]
 		}
 
+		if c.cut != nil && ansi.StringWidth(cell.text) > l.widths[i] {
+			cell.text = c.cut(cell.text, l.widths[i])
+		}
+
 		put(l.x[i], l.widths[i], place(cell, l.widths[i], c.align, c.keepEnd))
 	}
 
@@ -377,7 +385,9 @@ func (l columnLayout) span(from, to int) (start, end int) {
 }
 
 // place draws t in exactly width cells: aligned, and cut with "…" when wider,
-// from the left when keepEnd is set.
+// from the left when keepEnd is set. A cut that still comes out too wide,
+// as where East Asian widths make "…" two cells, is cut again at the end
+// without a mark.
 func place(t token, width int, a align, keepEnd bool) string {
 	if width <= 0 {
 		return ""
@@ -393,10 +403,14 @@ func place(t token, width int, a align, keepEnd bool) string {
 			text = ansi.Truncate(text, width, "…")
 		}
 
+		if ansi.StringWidth(text) > width {
+			text = ansi.Truncate(text, width, "")
+		}
+
 		w = ansi.StringWidth(text)
 	}
 
-	pad := strings.Repeat(" ", width-w)
+	pad := strings.Repeat(" ", max(width-w, 0))
 
 	if text != "" {
 		text = t.style.Render(text)

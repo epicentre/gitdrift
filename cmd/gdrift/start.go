@@ -18,15 +18,15 @@ import (
 // closeNotice is how long quitting waits for git in silence.
 const closeNotice = time.Second
 
-// startTUI runs the dashboard for dir in the terminal on stdout.
-func startTUI(ctx context.Context, dir string) error {
-	return start(ctx, dir, os.Stdout)
+// startTUI runs the dashboard for cfg in the terminal on stdout.
+func startTUI(ctx context.Context, cfg Config) error {
+	return start(ctx, cfg, os.Stdout)
 }
 
 // start checks that stdout is a terminal and that git is recent enough,
-// discovers the repositories in dir and runs the dashboard until the user
+// discovers the repositories in cfg.Dir and runs the dashboard until the user
 // quits or ctx ends, which it reports as context.Canceled.
-func start(ctx context.Context, dir string, stdout *os.File) error {
+func start(ctx context.Context, cfg Config, stdout *os.File) error {
 	if !isTerminal(stdout) {
 		return errors.New("an interactive terminal is required")
 	}
@@ -40,9 +40,9 @@ func start(ctx context.Context, dir string, stdout *os.File) error {
 		return err
 	}
 
-	groups, err := workspace.Discover(ctx, g, dir)
+	groups, err := workspace.Discover(ctx, g, cfg.Dir, workspace.DiscoverOptions{Depth: cfg.Depth})
 	if errors.Is(err, workspace.ErrNoRepos) {
-		return fmt.Errorf("no git repositories found in %s", dir)
+		return fmt.Errorf("no git repositories found in %s", cfg.Dir)
 	}
 
 	if err != nil {
@@ -51,7 +51,7 @@ func start(ctx context.Context, dir string, stdout *os.File) error {
 
 	ws := workspace.New(g, groups, workspace.DefaultOptions())
 
-	return runDashboard(ctx, ws, dir, os.Stderr, closeNotice, tea.WithOutput(stdout))
+	return runDashboard(ctx, ws, cfg.Dir, os.Stderr, closeNotice, tea.WithOutput(stdout))
 }
 
 // isTerminal reports whether f is a character device, as a terminal is.

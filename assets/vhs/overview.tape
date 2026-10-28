@@ -2,7 +2,7 @@
 Output assets/images/demo.gif
 
 Set FontSize 14
-Set Width 1400
+Set Width 1900
 Set Height 800
 Set Theme "Catppuccin Mocha"
 
@@ -28,7 +28,8 @@ Screenshot assets/images/overview.png
 # Let the capture land before the next key changes the frame.
 Sleep 1s
 
-# Tour: commits, files and diff, the Branches tab, then the zoomed table.
+# Tour: commits, files and diff, the Branches tab, a folder tab and the filter,
+# then the zoomed table.
 Type "2"
 Sleep 2s
 Type "j"
@@ -40,6 +41,15 @@ Type "]"
 Type "]"
 Sleep 3s
 Type "1"
+Sleep 2s
+Type "]"
+Sleep 2s
+Type "/"
+Type@150ms "pay"
+Sleep 2s
+Escape
+Sleep 1s
+Type "["
 Sleep 2s
 Type "z"
 Sleep 3s

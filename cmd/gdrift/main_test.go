@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/epicentre/gitdrift/internal/workspace"
 )
 
 func resolved(t *testing.T, dir string) string {
@@ -43,12 +45,13 @@ func TestRun(t *testing.T) {
 		wantStderrExact string
 		wantEmptyStderr bool
 		wantStart       string
+		wantDepth       int
 	}{
 		{name: "version flag", args: []string{"--version"}, wantStdout: "gdrift dev"},
 		{
 			name:       "help flag",
 			args:       []string{"--help"},
-			wantStderr: []string{"Usage: gdrift [flags] [dir]", "git config --local or --global", "gitdrift.base", "gitdrift.badge"},
+			wantStderr: []string{"Usage: gdrift [flags] [dir]", "git config --local or --global", "gitdrift.base", "gitdrift.badge", "--depth N", "node_modules or vendor"},
 		},
 		{
 			name:       "too many args",
@@ -74,7 +77,7 @@ func TestRun(t *testing.T) {
 			wantCode:   1,
 			wantStderr: []string{"is not a directory"},
 		},
-		{name: "explicit dir", args: []string{tmp}, wantStart: resolved(t, tmp)},
+		{name: "explicit dir", args: []string{tmp}, wantStart: resolved(t, tmp), wantDepth: workspace.DefaultDepth},
 		{
 			name:            "start error",
 			args:            []string{tmp},
@@ -82,6 +85,7 @@ func TestRun(t *testing.T) {
 			wantCode:        1,
 			wantStderrExact: "gdrift: boom\n",
 			wantStart:       resolved(t, tmp),
+			wantDepth:       workspace.DefaultDepth,
 		},
 		{
 			name:            "interrupted",
@@ -90,6 +94,7 @@ func TestRun(t *testing.T) {
 			wantCode:        130,
 			wantEmptyStderr: true,
 			wantStart:       resolved(t, tmp),
+			wantDepth:       workspace.DefaultDepth,
 		},
 	}
 
@@ -99,11 +104,11 @@ func TestRun(t *testing.T) {
 
 			var (
 				stdout, stderr bytes.Buffer
-				gotDir         string
+				gotCfg         Config
 			)
 
-			start := func(_ context.Context, dir string) error {
-				gotDir = dir
+			start := func(_ context.Context, cfg Config) error {
+				gotCfg = cfg
 
 				return tt.startErr
 			}
@@ -132,8 +137,88 @@ func TestRun(t *testing.T) {
 				t.Errorf("stderr = %q, want exactly %q", stderr.String(), tt.wantStderrExact)
 			}
 
-			if gotDir != tt.wantStart {
-				t.Errorf("start dir = %q, want %q", gotDir, tt.wantStart)
+			if gotCfg.Dir != tt.wantStart {
+				t.Errorf("start dir = %q, want %q", gotCfg.Dir, tt.wantStart)
+			}
+
+			if gotCfg.Depth != tt.wantDepth {
+				t.Errorf("start depth = %d, want %d", gotCfg.Depth, tt.wantDepth)
+			}
+		})
+	}
+}
+
+func TestRunDepth(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+
+	const flagDepth = "--depth"
+
+	tests := []struct {
+		name       string
+		args       []string
+		wantCode   int
+		wantDepth  int
+		wantStderr string
+	}{
+		{name: "separate value", args: []string{flagDepth, "3", tmp}, wantDepth: 3},
+		{name: "equals value", args: []string{flagDepth + "=2", tmp}, wantDepth: 2},
+		{name: "default", args: []string{tmp}, wantDepth: workspace.DefaultDepth},
+		{
+			name:       "zero",
+			args:       []string{flagDepth, "0", tmp},
+			wantCode:   2,
+			wantStderr: "gdrift: --depth must be 1 or more\nUsage: gdrift",
+		},
+		{
+			name:       "negative",
+			args:       []string{flagDepth + "=-1", tmp},
+			wantCode:   2,
+			wantStderr: "gdrift: --depth must be 1 or more",
+		},
+		{
+			name:       "not a number",
+			args:       []string{flagDepth, "x", tmp},
+			wantCode:   2,
+			wantStderr: "gdrift: invalid value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var (
+				stdout, stderr bytes.Buffer
+				gotCfg         Config
+				called         bool
+			)
+
+			start := func(_ context.Context, cfg Config) error {
+				gotCfg, called = cfg, true
+
+				return nil
+			}
+
+			if code := run(t.Context(), tt.args, &stdout, &stderr, start); code != tt.wantCode {
+				t.Fatalf("code = %d, want %d (stderr %q)", code, tt.wantCode, stderr.String())
+			}
+
+			if tt.wantCode != 0 {
+				if called {
+					t.Error("start was called for an invalid depth")
+				}
+
+				if !strings.HasPrefix(stderr.String(), tt.wantStderr) {
+					t.Errorf("stderr = %q, want prefix %q", stderr.String(), tt.wantStderr)
+				}
+
+				return
+			}
+
+			if want := (Config{Dir: resolved(t, tmp), Depth: tt.wantDepth}); gotCfg != want {
+				t.Errorf("start config = %+v, want %+v", gotCfg, want)
 			}
 		})
 	}
@@ -151,6 +236,9 @@ func TestRunPrintsUsageOnce(t *testing.T) {
 		{name: "short help flag", args: []string{"-h"}},
 		{name: "unknown flag", args: []string{"--nope"}, wantFirst: "gdrift: flag provided but not defined"},
 		{name: "too many args", args: []string{"a", "b"}, wantFirst: "gdrift: at most one directory argument"},
+		{name: "depth zero", args: []string{"--depth", "0"}, wantFirst: "gdrift: --depth must be 1 or more"},
+		{name: "depth negative", args: []string{"--depth=-2"}, wantFirst: "gdrift: --depth must be 1 or more"},
+		{name: "depth not a number", args: []string{"--depth", "x"}, wantFirst: "gdrift: invalid value"},
 	}
 
 	for _, tt := range tests {
@@ -159,7 +247,7 @@ func TestRunPrintsUsageOnce(t *testing.T) {
 
 			var stdout, stderr bytes.Buffer
 
-			start := func(context.Context, string) error { return nil }
+			start := func(context.Context, Config) error { return nil }
 			run(t.Context(), tt.args, &stdout, &stderr, start)
 
 			got := stderr.String()
@@ -178,10 +266,10 @@ func TestRunDefaultDir(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
 
-	var gotDir string
+	var gotCfg Config
 
-	start := func(_ context.Context, d string) error {
-		gotDir = d
+	start := func(_ context.Context, cfg Config) error {
+		gotCfg = cfg
 
 		return nil
 	}
@@ -191,8 +279,8 @@ func TestRunDefaultDir(t *testing.T) {
 		t.Fatalf("code = %d, want 0 (stderr %q)", code, stderr.String())
 	}
 
-	if want := resolved(t, dir); gotDir != want {
-		t.Errorf("start dir = %q, want %q", gotDir, want)
+	if want := (Config{Dir: resolved(t, dir), Depth: workspace.DefaultDepth}); gotCfg != want {
+		t.Errorf("start config = %+v, want %+v", gotCfg, want)
 	}
 }
 

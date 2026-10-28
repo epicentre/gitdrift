@@ -72,6 +72,7 @@ func TestBranchItems(t *testing.T) {
 
 func TestBranchItemLabels(t *testing.T) {
 	t.Parallel()
+	skipEastAsianWidths(t)
 
 	week := fixedNow.Add(-7 * day)
 

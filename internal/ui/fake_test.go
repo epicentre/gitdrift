@@ -280,9 +280,17 @@ func (f *fakeBackend) ResetBase(_ context.Context, loc repo.Location) error {
 	return nil
 }
 
-// fixtureLoc is the location of a fixture repository under fixtureRoot.
-func fixtureLoc(name string) repo.Location {
+// fixtureLoc is the location of a fixture repository directly in
+// fixtureRoot.
+func fixtureLoc(name string) repo.Location { return fixtureLocIn("", name) }
+
+// fixtureLocIn is the location of a fixture repository in folder, a
+// slash-separated path below fixtureRoot; "" is fixtureRoot itself.
+func fixtureLocIn(folder, name string) repo.Location {
 	path := fixtureRoot + "/" + name
+	if folder != "" {
+		path = fixtureRoot + "/" + folder + "/" + name
+	}
 
 	return repo.Location{
 		ID:        repo.ID(path),
@@ -290,6 +298,7 @@ func fixtureLoc(name string) repo.Location {
 		Name:      name,
 		GitDir:    path + "/.git",
 		CommonDir: path + "/.git",
+		Folder:    folder,
 	}
 }
 
@@ -415,10 +424,11 @@ func fixtureLong(name, branch string, now time.Time) drift.Snapshot {
 }
 
 // Wide text for the sweep: fullwidth letters, East Asian characters and
-// emoji, all two cells wide, in a repository name, branches, paths and
-// subjects.
+// emoji, all two cells wide, in a repository name, a folder, branches, paths
+// and subjects.
 const (
 	nameWide   = "ｐａｙｍｅｎｔｓ-漢字"
+	folderWide = "ｓｅｒｖｉｃｅｓ/漢字-🎉"
 	branchWide = "feature/漢字-ｃｈｅｃｋｏｕｔ"
 	goneWide   = "fix/漢字-ｒｏｕｎｄｉｎｇ-🎉"
 )
@@ -466,6 +476,41 @@ func fixtureSnapshots(now time.Time) []drift.Snapshot {
 		behindMain("notifications", 4, []string{"mig", "env"}, now.Add(-75*time.Hour)),
 		fixtureAuth(now),
 		fixtureInfra(now),
+	}
+}
+
+// Folders of the nested fixture, and a repository in it.
+const (
+	folderServices = "services"
+	folderPlatform = "services/platform"
+	folderWeb      = "web"
+	// platformInServices is services/platform as the services tab shows it.
+	platformInServices = "platform"
+	nameStorefront     = "storefront"
+)
+
+// relocated is s as the repository name in folder.
+func relocated(folder, name string, s drift.Snapshot) drift.Snapshot {
+	s.Loc = fixtureLocIn(folder, name)
+
+	return s
+}
+
+// fixtureNested is the fixture of a workspace with folders, in no
+// particular order: payments and billing (needing attention) in services,
+// notifications (behind) and search in services/platform, storefront
+// (behind) and admin in web, and docs at the root. The rows take the values
+// of fixtureSnapshots: storefront those of api-gateway, search those of auth
+// and admin those of infra; docs is clean and up to date.
+func fixtureNested(now time.Time) []drift.Snapshot {
+	return []drift.Snapshot{
+		relocated(folderServices, namePayments, fixturePayments(now)),
+		relocated(folderServices, "billing", fixtureBilling(now)),
+		relocated(folderPlatform, nameNotifications, behindMain(nameNotifications, 4, []string{badgeMig, "env"}, now.Add(-75*time.Hour))),
+		relocated(folderPlatform, "search", fixtureAuth(now)),
+		relocated(folderWeb, nameStorefront, behindMain(nameStorefront, 12, []string{badgeDeps}, now.Add(-50*time.Hour))),
+		relocated(folderWeb, "admin", fixtureInfra(now)),
+		tracking("docs", branchMain, now.Add(-16*day)),
 	}
 }
 

@@ -321,3 +321,74 @@ func TestSort(t *testing.T) {
 		t.Errorf("Sort order mismatch (-want +got):\n%s", diff)
 	}
 }
+
+// TestSortByFolder checks that within a category snapshots go by folder,
+// the root first and each folder's subfolders right after it, then by name.
+func TestSortByFolder(t *testing.T) {
+	t.Parallel()
+
+	in := func(folder, name string, behind int) drift.Snapshot {
+		return with(func(s *drift.Snapshot) {
+			s.Loc.Folder, s.Loc.Name, s.Loc.Path = folder, name, ""
+			s.Status.Behind = behind
+		})
+	}
+
+	snaps := []drift.Snapshot{
+		in("services-x", "alpha", 2), in("services/platform", "beta", 2), in("services", "gamma", 2),
+		in("", "delta", 2), in("web", "admin", 0), in("", "docs", 0), in("services", "billing", 2),
+	}
+
+	drift.Sort(snaps)
+
+	var got []string
+	for _, s := range snaps {
+		got = append(got, s.Loc.Folder+":"+s.Loc.Name)
+	}
+
+	want := []string{
+		":delta", "services:billing", "services:gamma", "services/platform:beta", "services-x:alpha",
+		":docs", "web:admin",
+	}
+
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Sort order mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestCompareLocations(t *testing.T) {
+	t.Parallel()
+
+	loc := func(folder, name, path string) repo.Location {
+		return repo.Location{Folder: folder, Name: name, Path: path}
+	}
+
+	tests := []struct {
+		name string
+		a, b repo.Location
+		want int
+	}{
+		{"the root before a folder", loc("", "zeta", ""), loc("api", "alpha", ""), -1},
+		{"folders by name", loc("services", "x", ""), loc("web", "x", ""), -1},
+		{"a folder before its subfolder", loc("services", "zeta", ""), loc("services/platform", "alpha", ""), -1},
+		{"a subfolder before a sibling that extends the name", loc("services/platform", "x", ""), loc("services-x", "x", ""), -1},
+		{"deeper subfolders by name", loc("a/b/d", "x", ""), loc("a/b/c", "x", ""), 1},
+		{"same folder by name", loc("web", "admin", ""), loc("web", "storefront", ""), -1},
+		{"same folder and name by path", loc("web", "admin", "/b"), loc("web", "admin", "/a"), 1},
+		{"equal", loc("web", "admin", "/a"), loc("web", "admin", "/a"), 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := drift.CompareLocations(tt.a, tt.b); got != tt.want {
+				t.Errorf("CompareLocations(%+v, %+v) = %d, want %d", tt.a, tt.b, got, tt.want)
+			}
+
+			if got := drift.CompareLocations(tt.b, tt.a); got != -tt.want {
+				t.Errorf("CompareLocations(%+v, %+v) = %d, want %d", tt.b, tt.a, got, -tt.want)
+			}
+		})
+	}
+}

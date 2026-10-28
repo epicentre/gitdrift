@@ -1,8 +1,8 @@
 # Configuration
 
 gitdrift has two settings, both plain git config keys. There is no config
-file of its own, no environment variable, and no flag besides `--version`
-and `--help`.
+file of its own, no environment variable, and no flag besides `--depth`,
+`--version` and `--help`.
 
 | Key | Values | Default | Read from |
 | --- | --- | --- | --- |

@@ -49,15 +49,42 @@ gdrift [flags] [dir]
 ```
 
 `dir` defaults to the current directory. gdrift looks at `dir` itself (when it
-is a repository) and at each of its direct subdirectories. Symlinks are
-followed, a repository reached twice is shown once, linked worktrees that sit at
-`dir` or one of its direct children get their own rows, and directories gdrift
-cannot read are skipped. It does not descend further.
+is a repository) and searches the directories below it, up to five levels deep
+by default, so a workspace such as `projects/services/billing-api` is found as
+well as a flat one.
 
-| Flag        | Meaning                              |
-| ----------- | ------------------------------------ |
-| `--version` | print version information and exit   |
-| `-h`, `--help` | print usage and exit              |
+- The search goes level by level, each level in name order. Setting `--depth N`
+  changes the number of levels; `dir`'s direct children are level 1, and a
+  value below 1 is refused.
+- A directory with a `.git` entry is a repository: it is listed and never
+  searched inside (except `dir` itself, whose subdirectories are still
+  searched), so a repository nested in another repository below `dir` is not
+  shown.
+  Linked worktrees have a `.git` entry too and get their own rows at any level.
+- A directory whose `.git` entry git does not open as a work tree (no work
+  tree, a broken repository, or one git refuses, for example for dubious
+  ownership) is not listed and is searched like any other directory. This
+  finds the worktrees of a bare clone kept beside them: with `proj/.git` a
+  file that points at `proj/.bare`, the worktrees `proj/main` and
+  `proj/feature` are listed (`.bare` is hidden and not searched).
+- Directories that are not repositories and are hidden (a name starting with
+  `.`), `node_modules` or `vendor` are not searched. A repository with one of
+  these names is still listed.
+- Symlinks are followed and each real directory is searched once, so a link
+  loop ends and a repository reached through several routes is shown once, with
+  the folder of the shallowest route, then the first in name order.
+  Directories gdrift cannot read are skipped; an unreadable `dir` is an error.
+- Below `dir`, git runs only in directories that have a `.git` entry, so
+  searching a big tree starts few processes. Starting gdrift in your home
+  directory still walks it down to the depth limit, which can make macOS ask
+  for access to Documents, Desktop or Downloads: run it in a projects folder,
+  or lower `--depth`.
+
+| Flag           | Meaning                                                 |
+| -------------- | ------------------------------------------------------- |
+| `--depth N`    | search up to N directory levels below `dir` (default 5) |
+| `--version`    | print version information and exit                      |
+| `-h`, `--help` | print usage and exit                                    |
 
 Every repository is fetched when gdrift starts (`r` and `R` fetch again), up to
 eight at a time, with a 60 second limit per remote. git never prompts in the
@@ -68,16 +95,29 @@ askpass helper can still run).
 | --------- | ------------------------------------------------------------ |
 | 0         | normal exit, or `--version` / `--help`                       |
 | 1         | error: not a directory, no repositories found, git too old, ... |
-| 2         | usage error: unknown flag or more than one directory         |
+| 2         | usage error: unknown flag, `--depth` below 1 or more than one directory |
 | 130       | ended by SIGINT, SIGTERM or SIGHUP                           |
 
 ### Reading a row
 
-A header line above the Repos rows names the columns: REPO, BRANCH, LOCAL,
-UPSTREAM, BASE, INCOMING, HERE and GONE. A column that has no value in any row,
-or that does not fit a narrow pane, is left out together with its title (the
-zoomed table, `z`, always shows every column), and a collapsed pane shows no
-header.
+A header line above the Repos rows names the columns: REPO, FOLDER, BRANCH,
+LOCAL, UPSTREAM, BASE, INCOMING, HERE and GONE. A column that has no value in
+any row, or that does not fit a narrow pane, is left out together with its
+title, and a collapsed pane shows no header. The zoomed table (`z`) shows every
+column when it fits; in a narrow pane it cuts the branch and the name first,
+then drops columns from the right, and FOLDER is never cut.
+
+FOLDER shows where a repository sits below the folder you started in, such as
+`services/platform`; a repository directly in that folder has an empty cell.
+When every repository is directly in the folder there is no FOLDER column and
+no folder tabs, and the pane looks as it always did. Within a status group the
+rows are sorted by folder, then name, so the repositories of a folder stay
+together. A folder too wide for its column is cut from the left at a `/`
+(`…/platform`), and when the row is too narrow FOLDER is the first column to
+shrink and the fifth to be dropped, after GONE, HERE, INCOMING and BASE. The
+status line, the dialogs and the notices name a repository in a folder by its
+path, such as `services/api`, so that repositories with the same name in
+different folders stay apart.
 
 In the Repos pane each repository has a status marker, the checked-out branch
 and a few tokens:
@@ -105,13 +145,34 @@ apply; for a repository without any remote, `no remote` also stands in for
 `no remote`. A row that is busy shows `fetching…` or `pulling…`, and a pull
 result or refusal reason takes the place of the tokens.
 
-The zoom table (`z`) spells the same information out in columns: REPO, BRANCH,
-LOCAL, UPSTREAM, VS BASE, INCOMING, HERE, GONE and UPDATED.
+The zoom table (`z`) spells the same information out in columns: REPO, FOLDER
+(only when a row has one, and never shortened), BRANCH, LOCAL, UPSTREAM,
+VS BASE, INCOMING, HERE, GONE and UPDATED.
 
 The Commits pane shows the tabs **Incoming** (what a pull would bring), **Base**
 (what the base branch has that this branch lacks), **Local** (uncommitted
 changes) and **Branches** (gone branches, branches with local only work, and
 stashes). Choose a commit to see its files and its diff in panes 3 and 4.
+
+### Folder tabs and the filter
+
+When repositories sit in folders, the Repos pane title gets tabs: **All**, then
+one tab for each top-level folder, with the number of repositories in it. A
+repository directly in the folder you started in shows only in All. In a folder
+tab the FOLDER column shows the path below that tab. Press `[` and `]` in the
+Repos pane to move between the tabs.
+
+`/` starts a filter in the Repos pane: type part of a repository's name or
+folder (case is ignored) and the pane shows only the matching rows within the
+current tab. While you type, every key with text is typed, `q` and digits
+included, and a paste adds its first line; `enter` keeps the filter and `esc`
+clears it. While no notice is showing, a kept filter starts the status line,
+followed by the repository under the cursor, and `esc` in the Repos pane clears
+it. A tab with rows hidden by the filter or by `f` shows `shown/total` as its
+count. `p`, `P`, `r` and `R` act only on the repositories on screen, and a
+selection that a tab switch, the filter or `f` hides is dropped, with a notice.
+`R` refreshes the whole group of each repository shown, so a linked worktree
+that is hidden is refreshed along with a shown one of the same repository.
 
 The terminal must be at least 60 columns by 15 rows. Below that gdrift shows a
 notice, and dialogs cannot be confirmed until the window is large enough to show
@@ -127,14 +188,15 @@ them.
 | `tab` / `shift+tab`  | next / previous pane                                     |
 | `1` - `4`            | focus a pane                                             |
 | `enter`              | open in the next pane                                    |
-| `esc`                | back, or leave zoom                                      |
-| `[` / `]`            | previous / next Commits tab                              |
+| `esc`                | back, leave zoom or clear filter                         |
+| `[` / `]`            | previous / next tab of the focused pane: folder tabs in Repos (when there are folders), Commits tabs elsewhere |
+| `/`                  | filter the repositories by name or folder (Repos pane)   |
 | `z`                  | zoom the focused pane                                    |
 | `space`              | select for pull (Repos pane) or select a gone branch (Branches tab) |
 | `p`                  | pull the selected repositories, or the current one       |
-| `P`                  | pull all repositories that are safe to pull              |
+| `P`                  | pull every repository on screen that is safe to pull     |
 | `r`                  | fetch and refresh the current repository                 |
-| `R`                  | fetch and refresh all repositories                       |
+| `R`                  | fetch and refresh the repositories on screen             |
 | `b`                  | choose the base branch of the current repository         |
 | `d`                  | delete the selected gone branches, or the one under the cursor (Branches tab) |
 | `f`                  | only-here filter: show only repositories with work that exists only here |
@@ -151,6 +213,8 @@ cancel). `ctrl+c` quits even while a dialog is open.
   `z` zooms the Repos pane into a table with one column per question.
 - Safe, confirmed pull: fast-forward only, one repository or all safe ones,
   after a dialog that names the exact commit you will get.
+- Nested workspaces: repositories are found several levels down, with a FOLDER
+  column, folder tabs and a `/` filter.
 - Base branch per repository, per machine or detected automatically, so you see
   how far a feature branch fell behind (`base↓N`).
 - Post-pull badges such as `deps`, `mig` and `env`, so you know to run an
@@ -165,7 +229,8 @@ cancel). `ctrl+c` quits even while a dialog is open.
 
 ![Main panes](assets/images/overview.png)
 
-The main panes: repositories, incoming commits, files and diff.
+The main panes: repositories with their folders and folder tabs, incoming
+commits, files and diff.
 
 ![Branches tab](assets/images/branches.png)
 
@@ -173,7 +238,7 @@ The Branches tab: gone branches and work that exists only on this machine.
 
 ![Zoomed repo table](assets/images/zoom.png)
 
-The zoomed repository table.
+The zoomed repository table, with the FOLDER column.
 
 ## Safety
 

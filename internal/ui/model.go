@@ -56,6 +56,14 @@ type Model struct {
 	focus, lastLeft Pane
 	zoom            bool
 	onlyHere        bool
+	// folderTab is the top-level folder whose repositories the Repos pane
+	// shows, "" for All.
+	folderTab string
+	// filter narrows the Repos pane to the repositories whose name or
+	// folder contains it, ignoring case; "" shows every one. filtering is
+	// set while it is typed.
+	filter    string
+	filtering bool
 
 	// rows holds every repository, sorted; cursor indexes the visible rows
 	// and top is the first visible row the Repos pane shows.
@@ -167,7 +175,7 @@ func (m Model) render() string {
 		headerLine(tildePath(m.root, m.home), m.loadedSnapshots(), len(m.rows), m.width, m.styles),
 		m.body(lay),
 		m.status(),
-		footerLine(m.focus, m.zoom, m.detail.tab, m.width, m.styles),
+		footerLine(m.focus, m.zoom, folderTabs(m.rows) != nil, m.detail.tab, m.width, m.styles),
 	}, "\n")
 
 	return m.overlayDialog(screen)
@@ -216,12 +224,7 @@ func (m Model) pane(p Pane, r Rect) string {
 
 	switch p {
 	case PaneRepos:
-		title := titleRepos
-		if m.tableMode() {
-			title = titleReposZoomed
-		}
-
-		return box(title, m.reposLines(r), r.W, r.H, focused, m.styles)
+		return box(m.reposTitle(r.W), m.reposLines(r), r.W, r.H, focused, m.styles)
 	case PaneCommits:
 		return box(m.commitsTitle(r.W), m.commitsLines(r), r.W, r.H, focused, m.styles)
 	case PaneFiles:
@@ -251,12 +254,24 @@ func (m Model) reposHasHeader(r Rect) bool {
 }
 
 // reposLines renders the inside of the Repos pane: the visible window of
-// rows around the cursor and "… N more" when rows remain below it.
+// rows around the cursor and "… N more" when rows remain below it, or
+// noMatchingRepos when no row is visible.
 func (m Model) reposLines(r Rect) []string {
 	inner := r.W - 2
 	gutter := compactGutter
 	rows := m.rowsAt(m.visible())
 	now := m.now()
+
+	if m.tableMode() {
+		gutter = tableGutter
+	}
+
+	if len(rows) == 0 {
+		indent := gutter + rowPrefixWidth
+		text := ansi.Truncate(noMatchingRepos, inner-indent, "…")
+
+		return []string{strings.Repeat(" ", indent) + m.styles.Muted.Render(text)}
+	}
 
 	var (
 		lines []string
@@ -264,11 +279,10 @@ func (m Model) reposLines(r Rect) []string {
 	)
 
 	if m.tableMode() {
-		gutter = tableGutter
-		l = newTableLayout(rows, inner-gutter, now)
+		l = newTableLayout(rows, m.folderTab, inner-gutter, now)
 		lines = append(lines, strings.Repeat(" ", gutter)+m.styles.Muted.Render(repoTableHeader(l)))
 	} else {
-		l = newCompactLayout(rows, inner-gutter, m.styles)
+		l = newCompactLayout(rows, m.folderTab, inner-gutter, m.styles)
 		if m.reposHasHeader(r) {
 			lines = append(lines, strings.Repeat(" ", gutter)+repoHeader(l, m.styles))
 		}
@@ -282,9 +296,9 @@ func (m Model) reposLines(r Rect) []string {
 
 		var line string
 		if m.tableMode() {
-			line = repoTableRow(rw.snap, rw.loaded, selected, note, l, m.styles, now)
+			line = repoTableRow(rw.snap, rw.loaded, selected, note, m.folderTab, l, m.styles, now)
 		} else {
-			line = repoRow(rw.snap, rw.loaded, selected, note, l, m.styles)
+			line = repoRow(rw.snap, rw.loaded, selected, note, m.folderTab, l, m.styles)
 		}
 
 		lines = append(lines, m.gutter(i == m.cursor)+line)
@@ -312,10 +326,15 @@ func (m Model) gutter(isCursor bool) string {
 	}
 }
 
-// status renders the status line: the notice of the last key, the gone
-// branch under the Commits cursor, or else the repository under the Repos
-// cursor.
+// status renders the status line: the filter while it is typed, followed by
+// the notice of the last key; else that notice, the gone branch under the
+// Commits cursor, or the repository under the Repos cursor, after the kept
+// filter when there is one.
 func (m Model) status() string {
+	if m.filtering {
+		return typingLine(m.filter, m.notice, m.width, m.styles)
+	}
+
 	if m.notice != "" {
 		return m.styles.Attention.Render(ansi.Truncate(m.notice, m.width, "…"))
 	}
@@ -325,6 +344,18 @@ func (m Model) status() string {
 	}
 
 	r, ok := m.cursorRow()
+
+	if m.filter != "" {
+		line := filterLine(m.filter, false, m.width, m.styles)
+
+		room, fits := roomAfter(line, m.width)
+		if !ok || !fits {
+			return line
+		}
+
+		return line + separator + statusLine(r.snap, r.loaded, m.rowNote(r), room, m.styles)
+	}
+
 	if !ok {
 		return ""
 	}

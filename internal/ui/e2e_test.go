@@ -66,7 +66,7 @@ func TestEndToEndPull(t *testing.T) {
 
 	root := env.WorkDir()
 
-	groups, err := workspace.Discover(t.Context(), env.Runner(), root)
+	groups, err := workspace.Discover(t.Context(), env.Runner(), root, workspace.DiscoverOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

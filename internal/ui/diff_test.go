@@ -81,6 +81,7 @@ func TestParseDiff(t *testing.T) {
 
 func TestExpandTabs(t *testing.T) {
 	t.Parallel()
+	skipEastAsianWidths(t)
 
 	tests := []struct{ in, want string }{
 		{"\tx", "    x"},

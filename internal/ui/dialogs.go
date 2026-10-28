@@ -191,8 +191,12 @@ func (m *Model) openDialog(d dialog) {
 // meanwhile, if any.
 func (m *Model) closeDialog() {
 	m.dialog = nil
+	m.openWaiting()
+}
 
-	if len(m.waiting) > 0 {
+// openWaiting opens the first window that waits, when no window is open.
+func (m *Model) openWaiting() {
+	if m.dialog == nil && len(m.waiting) > 0 {
 		m.openDialog(m.waiting[0])
 		m.waiting = m.waiting[1:]
 	}
@@ -287,7 +291,7 @@ type pullConfirm struct {
 	snaps []drift.Snapshot
 }
 
-// Columns of a pull dialog line: repository, branch, the commits it is
+// Columns of a pull dialog line: repository path, branch, the commits it is
 // behind, the arrow and the upstream tip the pull goes to.
 const (
 	pullName = iota
@@ -306,13 +310,14 @@ const (
 	pullBranchMin = 11
 )
 
-// view lists each repository as aligned columns: name and branch as wide as
-// the longest, cut with "…" when the window is narrow, branch first; then ↓
-// with the behind count right-aligned after it, the arrow and the upstream
-// tip.
+// view lists each repository as aligned columns: its folder and name (see
+// repoLabel) and branch as wide as the longest, cut with "…" when the window
+// is narrow, branch first; the name is cut from the left, so repositories in
+// one folder stay apart. Then ↓ with the behind count right-aligned after
+// it, the arrow and the upstream tip.
 func (d pullConfirm) view(_ dialogEnv, width, _ int) dialogView {
 	cols := []column{
-		pullName:   {min: pullNameMin, shrink: 2},
+		pullName:   {min: pullNameMin, shrink: 2, keepEnd: true},
 		pullBranch: {min: pullBranchMin, shrink: 1, gap: pullGap},
 		pullBehind: {gap: pullGap},
 		pullArrow:  {},
@@ -330,7 +335,7 @@ func (d pullConfirm) view(_ dialogEnv, width, _ int) dialogView {
 		behind := strconv.Itoa(s.Status.Behind)
 
 		lines[i] = []string{
-			pullName:   sanitize(s.Loc.Name),
+			pullName:   repoLabel(s.Loc),
 			pullBranch: branchLabel(s.Status),
 			pullBehind: "↓" + strings.Repeat(" ", digits-len(behind)) + behind,
 			pullArrow:  "→",
@@ -404,9 +409,9 @@ func (d deleteConfirm) view(env dialogEnv, width, _ int) dialogView {
 		}
 	}
 
-	title := "Delete " + strconv.Itoa(len(d.items)) + " gone branches in " + sanitize(d.loc.Name) + "?"
+	title := "Delete " + strconv.Itoa(len(d.items)) + " gone branches in " + repoLabel(d.loc) + "?"
 	if len(d.items) == 1 {
-		title = "Delete 1 gone branch in " + sanitize(d.loc.Name) + "?"
+		title = "Delete 1 gone branch in " + repoLabel(d.loc) + "?"
 	}
 
 	v := dialogView{title: title, body: body, footer: footerDeleteDialog}
@@ -457,7 +462,7 @@ func (d deleteResult) view(env dialogEnv, _, _ int) dialogView {
 		}
 	}
 
-	return dialogView{title: "Gone branches in " + sanitize(d.loc.Name), body: body, footer: footerClose}
+	return dialogView{title: "Gone branches in " + repoLabel(d.loc), body: body, footer: footerClose}
 }
 
 // deleteResultLine describes the outcome of one deletion; a deleted branch

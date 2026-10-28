@@ -19,14 +19,17 @@ const (
 	fetchFailed = "fetch failed: "
 )
 
-// Footer hints per focused pane.
+// Footer hints per focused pane. In a workspace with folders the Repos pane
+// names its folder tabs and the filter.
 const (
-	footerRepos       = "space select · p pull · P pull all safe · r/R refresh · b base · z zoom · tab pane · ? help"
-	footerReposZoomed = "space select · p pull · P pull all safe · f only-here filter · z unzoom · ? help"
-	footerCommits     = "[ ] tabs · enter files · z zoom · esc back · ? help"
-	footerBranches    = "space select · d delete gone · [ ] tabs · z zoom · esc back · ? help"
-	footerFiles       = "enter diff · [ ] tabs · z zoom · esc back · ? help"
-	footerDiff        = "↑↓ scroll · pgup/pgdn page · z zoom · esc back · ? help"
+	footerRepos              = "space select · p pull · P pull all safe · r/R refresh · b base · z zoom · tab pane · ? help"
+	footerReposZoomed        = "space select · p pull · P pull all safe · f only-here filter · z unzoom · ? help"
+	footerReposFolders       = "space select · p pull · P pull all safe · [ ] folders · / filter · r/R refresh · b base · z zoom · ? help"
+	footerReposZoomedFolders = "space select · p pull · P pull all safe · f only-here filter · [ ] folders · / filter · z unzoom · ? help"
+	footerCommits            = "[ ] tabs · enter files · z zoom · esc back · ? help"
+	footerBranches           = "space select · d delete gone · [ ] tabs · z zoom · esc back · ? help"
+	footerFiles              = "enter diff · [ ] tabs · z zoom · esc back · ? help"
+	footerDiff               = "↑↓ scroll · pgup/pgdn page · z zoom · esc back · ? help"
 )
 
 // headerLine renders "gitdrift  <root>" on the left and the workspace counts
@@ -113,12 +116,12 @@ func tildePath(path, home string) string {
 	return path
 }
 
-// statusLine describes the repository under the cursor: its name, the note
-// its row shows (a pull or fetch in progress, or the last pull's result),
-// its base and why it needs attention, with the message of each failed
-// fetch.
+// statusLine describes the repository under the cursor: its folder and
+// name (see repoLabel), the note its row shows (a pull or fetch in progress,
+// or the last pull's result), its base and why it needs attention, with the
+// message of each failed fetch.
 func statusLine(s drift.Snapshot, loaded bool, note token, width int, st Styles) string {
-	parts := []string{st.Strong.Render(sanitize(s.Loc.Name))}
+	parts := []string{st.Strong.Render(repoLabel(s.Loc))}
 
 	if note.text != "" {
 		parts = append(parts, note.style.Render(note.text))
@@ -157,15 +160,21 @@ func withFetchMessage(reason string, f drift.FetchState) string {
 	return reason
 }
 
-// footerLine shows the key hints for the focused pane; the Commits pane's
-// depend on its active tab.
-func footerLine(focus Pane, zoom bool, tab Tab, width int, st Styles) string {
+// footerLine shows the key hints for the focused pane; the Repos pane's
+// depend on zoom and on whether the workspace has folders, the Commits
+// pane's on its active tab.
+func footerLine(focus Pane, zoom, folders bool, tab Tab, width int, st Styles) string {
 	hints := footerRepos
 
 	switch focus {
 	case PaneRepos:
-		if zoom {
+		switch {
+		case zoom && folders:
+			hints = footerReposZoomedFolders
+		case zoom:
 			hints = footerReposZoomed
+		case folders:
+			hints = footerReposFolders
 		}
 	case PaneCommits:
 		hints = footerCommits

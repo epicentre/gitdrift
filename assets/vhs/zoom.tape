@@ -1,6 +1,6 @@
 # Renders assets/images/zoom.png. Run from the repository root after "make build".
 Set FontSize 14
-Set Width 1400
+Set Width 1900
 Set Height 800
 Set Theme "Catppuccin Mocha"
 

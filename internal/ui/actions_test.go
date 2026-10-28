@@ -397,13 +397,14 @@ func TestPullResultCopy(t *testing.T) {
 }
 
 // branchesModel is the payments model with the Branches tab focused and the
-// cursor on feature/cash-rounding.
+// cursor on feature/cash-rounding. The Commits pane is focused before [ is
+// pressed, so that [ switches its tab even when snaps have folders.
 func branchesModel(t *testing.T, snaps []drift.Snapshot, width, height int) (Model, *fakeBackend) {
 	t.Helper()
 
 	m, fake := newTestModel(t, snaps, width, height)
 	fake.setDetail(paymentsDetail(fixedNow))
-	m = pressSettle(t, moveTo(t, loadAll(t, m, fake), namePayments), "[", "2")
+	m = pressSettle(t, moveTo(t, loadAll(t, m, fake), namePayments), "2", "[")
 
 	if it, ok := m.cursorBranchItem(); !ok || it.ref != branchCashRounding {
 		t.Fatalf("Branches cursor is on %+v, want feature/cash-rounding", it)
@@ -750,7 +751,7 @@ func TestHelpToggle(t *testing.T) {
 	m, _ := loadedModel(t, fixtureSnapshots(fixedNow), 120, 40)
 
 	m = press(t, m, "?")
-	assertViewContains(t, m, "pull selected or current repo", "delete gone branches", "press any key to close")
+	assertViewContains(t, m, "pull selected or current repo", "delete gone branches", "previous tab", "next tab", "press any key to close")
 
 	for _, k := range []string{"j", "?"} {
 		next := press(t, m, k)
@@ -1010,4 +1011,417 @@ func TestViewGoldenDeleteResult(t *testing.T) {
 	m = feed(t, m, runCmd(cmd))
 
 	assertGolden(t, "view_delete_result.golden", viewText(m)+"\n")
+}
+
+// nestedID is the ID of the repository name in folder of the nested
+// fixture.
+func nestedID(folder, name string) repo.ID { return fixtureLocIn(folder, name).ID }
+
+// pullNames names the repositories the open pull dialog lists, in its
+// order; none when no pull dialog is open.
+func pullNames(m Model) []string {
+	d, ok := m.dialog.(pullConfirm)
+	if !ok {
+		return nil
+	}
+
+	names := make([]string, len(d.snaps))
+	for i, s := range d.snaps {
+		names[i] = s.Loc.Name
+	}
+
+	return names
+}
+
+// TestPullAllOnlyVisible checks that P offers only the safe repositories the
+// Repos pane shows: those of the folder tab that pass the filter.
+func TestPullAllOnlyVisible(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		keys []string
+		want []string
+	}{
+		{"All tab", nil, []string{nameNotifications, nameStorefront}},
+		{"services tab", []string{"]"}, []string{nameNotifications}},
+		{"web tab", []string{"]", "]"}, []string{nameStorefront}},
+		{"filter", []string{"/", "s", "t", "o", "r", keyEnter}, []string{nameStorefront}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			m, _ := loadedModel(t, fixtureNested(fixedNow), 150, 40)
+			m = press(t, press(t, m, tt.keys...), "P")
+
+			if diff := cmp.Diff(tt.want, pullNames(m)); diff != "" {
+				t.Errorf("P after %q: pull dialog mismatch (-want +got):\n%s", tt.keys, diff)
+			}
+		})
+	}
+}
+
+// TestPullAllRespectsOnlyHere checks that with f on P offers only the
+// repositories with work only here: in the nested fixture those are payments
+// and search, neither safe to pull, until storefront holds a stash.
+func TestPullAllRespectsOnlyHere(t *testing.T) {
+	t.Parallel()
+
+	stashed := withSnap(fixtureNested(fixedNow), nameStorefront, func(s *drift.Snapshot) {
+		s.Work.Stashes = fixturePayments(fixedNow).Work.Stashes
+	})
+
+	tests := []struct {
+		name   string
+		snaps  []drift.Snapshot
+		want   []string
+		status string
+	}{
+		{"none safe", fixtureNested(fixedNow), nil, nothingSafeToPull},
+		{"storefront with a stash", stashed, []string{nameStorefront}, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			m, _ := loadedModel(t, tt.snaps, 150, 40)
+			m = press(t, m, "f", "P")
+
+			if diff := cmp.Diff(tt.want, pullNames(m)); diff != "" {
+				t.Errorf("f, P: pull dialog mismatch (-want +got):\n%s", diff)
+			}
+
+			if m.notice != tt.status {
+				t.Errorf("f, P: notice = %q, want %q", m.notice, tt.status)
+			}
+		})
+	}
+}
+
+// TestSelectionDroppedWhenHidden checks that a tab switch or a filter that
+// hides selected repositories unselects them, saying so, keeps the visible
+// selection, and that p then pulls only what stays selected.
+func TestSelectionDroppedWhenHidden(t *testing.T) {
+	t.Parallel()
+
+	m, fake := loadedModel(t, fixtureNested(fixedNow), 150, 40)
+	m = press(t, moveTo(t, m, nameNotifications), keySpace)
+	both := press(t, moveTo(t, m, nameStorefront), keySpace)
+
+	m = press(t, both, "]")
+	if got, want := statusText(m), "web/storefront unselected"; got != want {
+		t.Errorf("status after ] to services = %q, want %q", got, want)
+	}
+
+	if want := map[repo.ID]bool{nestedID(folderPlatform, nameNotifications): true}; !cmp.Equal(want, m.selected) {
+		t.Errorf("selection in the services tab = %v, want only notifications", m.selected)
+	}
+
+	m = press(t, m, "p")
+	if diff := cmp.Diff([]string{nameNotifications}, pullNames(m)); diff != "" {
+		t.Errorf("p in the services tab: pull dialog mismatch (-want +got):\n%s", diff)
+	}
+
+	_, cmd := pressCmd(t, m, "y")
+	runCmd(cmd)
+	assertCalls(t, fake, "Pull", []string{"Pull notifications main " + shaHead + ".." + shaUpstream + " fetched=true"})
+
+	// z, the first character of filterNothing, already hides every row.
+	m = typeFilter(t, both, filterNothing[:1])
+	if got, want := statusText(m), "filter: z▏ · 2 repositories unselected"; got != want {
+		t.Errorf("status after a filter that hides both = %q, want %q", got, want)
+	}
+
+	if len(m.selected) != 0 {
+		t.Errorf("selection = %v, want none", m.selected)
+	}
+}
+
+// TestSelectionDroppedWhileTyping types filters over a selection: a filter
+// that keeps the selected repository visible keeps it selected, and the
+// keystroke that hides it unselects it, saying so after the typed text. A
+// dropped selection does not come back when the filter is cleared.
+func TestSelectionDroppedWhileTyping(t *testing.T) {
+	t.Parallel()
+
+	id := nestedID(folderPlatform, nameNotifications)
+
+	m, _ := loadedModel(t, fixtureNested(fixedNow), 150, 40)
+	selected := press(t, moveTo(t, m, nameNotifications), keySpace)
+
+	platLine := filterPrefix + filterPlatform + filterCaret
+	if m = typeFilter(t, selected, filterPlatform); !m.selected[id] || statusText(m) != platLine {
+		t.Errorf("after /plat: selected %t, status %q; want selected, %q", m.selected[id], statusText(m), platLine)
+	}
+
+	steps := []struct {
+		key, status string
+		selected    bool
+	}{
+		{"/", "filter: ▏", true},
+		{"s", "filter: s▏", true},
+		{"t", "filter: st▏ · services/platform/notifications unselected", false},
+		{"o", "filter: sto▏", false},
+		{"r", "filter: stor▏", false},
+		{"e", "filter: store▏", false},
+		{keyEsc, "web/storefront · base origin/main (auto)", false},
+	}
+
+	m = selected
+	for _, s := range steps {
+		m = press(t, m, s.key)
+
+		got := fmt.Sprintf("selected %t, status %q", m.selected[id], statusText(m))
+		if want := fmt.Sprintf("selected %t, status %q", s.selected, s.status); got != want {
+			t.Errorf("after %q: %s; want %s", s.key, got, want)
+		}
+	}
+}
+
+// TestRefreshAllVisibleGroups checks that R fetches the groups of the
+// visible rows, each once and whole, also when the tab shows only one of its
+// worktrees, and clears the pull results of their rows only; in the All tab
+// that is every group.
+func TestRefreshAllVisibleGroups(t *testing.T) {
+	t.Parallel()
+
+	const nameHotfix = "payments-hotfix"
+
+	// hotfix is a worktree of services/payments checked out in web.
+	hotfix := relocated(folderWeb, nameHotfix, fixturePayments(fixedNow))
+	hotfix.Loc.CommonDir = fixtureLocIn(folderServices, namePayments).CommonDir
+	snaps := append(fixtureNested(fixedNow), hotfix)
+
+	dirs := make(map[string]string, len(snaps))
+	for _, s := range snaps {
+		dirs[s.Loc.Name] = s.Loc.CommonDir
+	}
+
+	tests := []struct {
+		name string
+		keys []string
+		// groups names a repository of each group R refreshes; nil for every
+		// group of the workspace.
+		groups []string
+		// kept are the repositories whose pull results stay.
+		kept []string
+	}{
+		{
+			"services tab",
+			[]string{"]"},
+			[]string{nameBilling, namePayments, nameNotifications, nameSearch},
+			[]string{nameStorefront},
+		},
+		{"web tab", []string{"]", "]"}, []string{nameStorefront, "admin", namePayments}, nil},
+		{"All tab", nil, nil, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			m, fake := loadedModel(t, snaps, 150, 40)
+
+			for _, id := range []repo.ID{hotfix.Loc.ID, nestedID(folderWeb, nameStorefront)} {
+				var cmd tea.Cmd
+
+				m, cmd = updateCmd(t, m, pullDoneMsg{id: id, outcome: ops.PullOutcome{Pulled: 1}})
+				m = settle(t, m, cmd)
+			}
+
+			before := len(fake.Calls("Refresh"))
+
+			m, cmd := pressCmd(t, press(t, m, tt.keys...), "R")
+			runCmd(cmd)
+
+			var want []string
+
+			for _, g := range fake.groups {
+				if tt.groups == nil || slices.ContainsFunc(tt.groups, func(name string) bool { return dirs[name] == g.CommonDir }) {
+					want = append(want, fmt.Sprintf("Refresh %s fetch=true", g.CommonDir))
+				}
+			}
+
+			got := callsSince(fake, "Refresh", before)
+			slices.Sort(got)
+			slices.Sort(want)
+
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("R Refresh calls mismatch (-want +got):\n%s", diff)
+			}
+
+			var kept []string
+
+			for _, r := range m.rows {
+				if _, ok := m.results[r.snap.Loc.ID]; ok {
+					kept = append(kept, r.snap.Loc.Name)
+				}
+			}
+
+			if diff := cmp.Diff(tt.kept, kept); diff != "" {
+				t.Errorf("pull results kept after R mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestSelectionDroppedByOnlyHere checks that f, and a refresh under f that
+// takes a repository's work only here away, unselect the selected
+// repositories they hide, saying so.
+func TestSelectionDroppedByOnlyHere(t *testing.T) {
+	t.Parallel()
+
+	t.Run("f", func(t *testing.T) {
+		t.Parallel()
+
+		m, _ := loadedModel(t, fixtureNested(fixedNow), 150, 40)
+		m = press(t, moveTo(t, m, nameNotifications), keySpace)
+		m = press(t, moveTo(t, m, nameStorefront), keySpace, "f")
+
+		if got, want := statusText(m), "2 repositories unselected"; got != want {
+			t.Errorf("status after f = %q, want %q", got, want)
+		}
+
+		if len(m.selected) != 0 {
+			t.Errorf("selection after f = %v, want none", m.selected)
+		}
+	})
+
+	t.Run("a refresh under f", func(t *testing.T) {
+		t.Parallel()
+
+		snaps := withSnap(fixtureNested(fixedNow), nameStorefront, func(s *drift.Snapshot) {
+			s.Work.Stashes = fixturePayments(fixedNow).Work.Stashes
+		})
+		id := nestedID(folderWeb, nameStorefront)
+
+		m, fake := loadedModel(t, snaps, 150, 40)
+		if m = press(t, moveTo(t, press(t, m, "f"), nameStorefront), keySpace); !m.selected[id] {
+			t.Fatalf("storefront with a stash is not selected under f: %v", m.selected)
+		}
+
+		dir := fixtureLocIn(folderWeb, nameStorefront).CommonDir
+		dropped := withSnap(fake.snaps[dir], nameStorefront, func(s *drift.Snapshot) { s.Work.Stashes = nil })
+		m = step(t, m, groupRefreshedMsg{commonDir: dir, snaps: dropped})
+
+		if got, want := statusText(m), "web/storefront unselected"; got != want {
+			t.Errorf("status after the refresh = %q, want %q", got, want)
+		}
+
+		if len(m.selected) != 0 {
+			t.Errorf("selection after the refresh = %v, want none", m.selected)
+		}
+	})
+}
+
+// TestSelectionDropsShareOneNotice checks that one refresh that hides a
+// selected repository under f and makes another one unsafe to pull counts
+// both in one notice.
+func TestSelectionDropsShareOneNotice(t *testing.T) {
+	t.Parallel()
+
+	stashes := fixturePayments(fixedNow).Work.Stashes
+	main := behindMain(nameStorefront, 3, nil, fixedNow)
+	hotfix := behindMain("storefront-hotfix", 3, nil, fixedNow)
+	hotfix.Loc.CommonDir = main.Loc.CommonDir
+	main.Work.Stashes, hotfix.Work.Stashes = stashes, stashes
+
+	m, _ := loadedModel(t, []drift.Snapshot{main, hotfix}, 120, 40)
+	if m = press(t, m, "f", keySpace, keyDown, keySpace); len(m.selected) != 2 {
+		t.Fatalf("selection under f = %v, want both worktrees", m.selected)
+	}
+
+	// The refresh hides storefront, its stash gone, and finds local changes
+	// in storefront-hotfix.
+	main.Work.Stashes, hotfix.Status.Tracked = nil, 2
+	m = step(t, m, groupRefreshedMsg{commonDir: main.Loc.CommonDir, snaps: []drift.Snapshot{main, hotfix}})
+
+	if got, want := statusText(m), "2 repositories unselected"; got != want {
+		t.Errorf("status = %q, want %q", got, want)
+	}
+
+	if len(m.selected) != 0 {
+		t.Errorf("selection = %v, want none", m.selected)
+	}
+}
+
+// TestSameNamedReposAreToldApart checks that two repositories with one name
+// in different folders are named by their folder too wherever a single one
+// is named: the pull dialog, the delete dialog and its result, the base
+// picker, the status line and the notices.
+func TestSameNamedReposAreToldApart(t *testing.T) {
+	t.Parallel()
+
+	const nameAPI = "api"
+
+	apis := []drift.Snapshot{
+		relocated(folderServices, nameAPI, behindMain(nameAPI, 3, nil, fixedNow)),
+		relocated(folderWeb, nameAPI, behindMain(nameAPI, 5, nil, fixedNow)),
+	}
+
+	t.Run("pull dialog and status line", func(t *testing.T) {
+		t.Parallel()
+
+		m, _ := loadedModel(t, apis, 120, 40)
+
+		if got, want := statusText(m), "services/api · base origin/main"; !strings.HasPrefix(got, want) {
+			t.Errorf("status = %q, want it to start with %q", got, want)
+		}
+
+		m = press(t, m, "P")
+		assertViewHasRow(t, m, "│", "services/api", "main", "↓3 → a1b2c3d", "│")
+		assertViewHasRow(t, m, "│", "web/api", "main", "↓5 → a1b2c3d", "│")
+	})
+
+	t.Run("notice of a hidden selection", func(t *testing.T) {
+		t.Parallel()
+
+		m, _ := loadedModel(t, apis, 120, 40)
+		m = press(t, m, keySpace, keyDown, keySpace, "]")
+
+		if got, want := statusText(m), "web/api unselected"; got != want {
+			t.Errorf("status = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("base picker", func(t *testing.T) {
+		t.Parallel()
+
+		m, _ := loadedModel(t, apis, 120, 40)
+		assertViewContains(t, press(t, moveTo(t, m, nameAPI), keyDown, "b"), "Base for web/api")
+	})
+
+	payments := []drift.Snapshot{
+		relocated(folderServices, namePayments, fixturePayments(fixedNow)),
+		relocated(folderWeb, namePayments, fixturePayments(fixedNow)),
+	}
+
+	t.Run("delete dialog and result", func(t *testing.T) {
+		t.Parallel()
+
+		m, _ := branchesModel(t, payments, 140, 30)
+		m = openDeleteDialog(t, press(t, m, keySpace))
+		assertViewContains(t, m, "Delete 1 gone branch in services/payments?")
+
+		m, cmd := pressCmd(t, m, "y")
+		assertViewContains(t, feed(t, m, runCmd(cmd)), "Gone branches in services/payments")
+	})
+
+	t.Run("checked out in another worktree", func(t *testing.T) {
+		t.Parallel()
+
+		hotfix := fixturePayments(fixedNow)
+		hotfix.Loc = fixtureLocIn(folderServices, "payments-hotfix")
+		hotfix.Loc.CommonDir = payments[0].Loc.CommonDir
+		hotfix.Status.Branch = branchCashRounding
+
+		m, _ := branchesModel(t, []drift.Snapshot{payments[0], hotfix}, 140, 30)
+
+		if got, want := statusText(press(t, m, keySpace)), "branch is checked out in services/payments-hotfix"; got != want {
+			t.Errorf("status = %q, want %q", got, want)
+		}
+	})
 }

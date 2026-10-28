@@ -368,8 +368,9 @@ func TestDeleteDialogAlignsCommits(t *testing.T) {
 
 // TestPullConfirmAlignsLines checks the lines of the pull dialog: names and
 // branches in columns as wide as the longest, cut with "…" in a narrow
-// window, every ↓ and → at one column and the behind counts right-aligned
-// between them.
+// window (names from the left, so repositories in one folder stay apart),
+// every ↓ and → at one column and the behind counts right-aligned between
+// them.
 func TestPullConfirmAlignsLines(t *testing.T) {
 	t.Parallel()
 	skipEastAsianWidths(t)
@@ -381,6 +382,15 @@ func TestPullConfirmAlignsLines(t *testing.T) {
 
 	long := tracking(nameLong, branchLong, fixedNow)
 	long.Status.Behind, long.Status.UpstreamSHA = 2, shaUpstream
+
+	// deepAPI and deepWeb share a folder too long for a 60 column window.
+	const deepFolder = "services/platform/notifications"
+
+	deepAPI := behindMain("api", 3, nil, fixedNow)
+	deepAPI.Loc = fixtureLocIn(deepFolder, "api")
+
+	deepWeb := behindMain("web", 5, nil, fixedNow)
+	deepWeb.Loc = fixtureLocIn(deepFolder, "web")
 
 	tests := []struct {
 		name  string
@@ -403,7 +413,16 @@ func TestPullConfirmAlignsLines(t *testing.T) {
 			52,
 			[]string{
 				pad(nameAPIGateway, 24) + "  " + pad(branchMain, 11) + "  ↓12 → a1b2c3d",
-				"settlement-reconciliati…  feature/me…  ↓ 2 → a1b2c3d",
+				"…ement-reconciliation-ui  feature/me…  ↓ 2 → a1b2c3d",
+			},
+		},
+		{
+			"a cut keeps the names of repositories in one folder",
+			[]drift.Snapshot{deepAPI, deepWeb},
+			42,
+			[]string{
+				"…orm/notifications/api  main  ↓3 → a1b2c3d",
+				"…orm/notifications/web  main  ↓5 → a1b2c3d",
 			},
 		},
 	}

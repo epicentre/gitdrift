@@ -12,6 +12,8 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+
+	"github.com/epicentre/gitdrift/internal/workspace"
 )
 
 // Exit codes.
@@ -27,7 +29,11 @@ const usageText = `Usage: gdrift [flags] [dir]
 gdrift shows drift across the git repositories found in dir (default: the
 current directory).
 
+Repositories are searched in dir and below it. The search does not enter
+repositories, hidden directories, node_modules or vendor.
+
 Flags:
+  --depth N  search up to N directory levels below dir (default 5)
   --version  print version information and exit
 
 Git config keys (set with git config --local or --global):
@@ -35,8 +41,17 @@ Git config keys (set with git config --local or --global):
   gitdrift.badge  what to show as the badge after a pull
 `
 
-// StartFunc runs the interactive program for the workspace in dir.
-type StartFunc func(ctx context.Context, dir string) error
+// Config is what the command line asks for.
+type Config struct {
+	// Dir is the absolute, symlink-resolved workspace directory.
+	Dir string
+	// Depth is how many directory levels below Dir repositories are
+	// searched.
+	Depth int
+}
+
+// StartFunc runs the interactive program for the workspace in cfg.
+type StartFunc func(ctx context.Context, cfg Config) error
 
 // quitSignals end gdrift through the cancellation of its context, so that it
 // quits as it does on q: it waits for running git instead of being killed.
@@ -61,6 +76,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, start Sta
 	// Parse would call Usage itself on -h and on bad flags; run prints the
 	// usage once, after any error message.
 	fs.Usage = func() {}
+	depth := fs.Int("depth", workspace.DefaultDepth, "directory levels to search below dir")
 	showVersion := fs.Bool("version", false, "print version information and exit")
 
 	if err := fs.Parse(args); err != nil {
@@ -82,6 +98,13 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, start Sta
 		return exitOK
 	}
 
+	if *depth < 1 {
+		writeLine(stderr, "gdrift: --depth must be 1 or more")
+		usage()
+
+		return exitUsage
+	}
+
 	if fs.NArg() > 1 {
 		writeLine(stderr, "gdrift: at most one directory argument")
 		usage()
@@ -96,7 +119,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, start Sta
 		return exitError
 	}
 
-	if err := start(ctx, dir); err != nil {
+	if err := start(ctx, Config{Dir: dir, Depth: *depth}); err != nil {
 		if errors.Is(err, context.Canceled) {
 			return exitInterrupted
 		}

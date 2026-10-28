@@ -10,23 +10,48 @@ the deletion result window.
 | --- | --- | --- |
 | `gdrift: an interactive terminal is required` | Output is redirected to a file or pipe. | Run gdrift directly in a terminal. |
 | `gdrift: git 2.30 or newer is required (found X.Y.Z)` | The `git` on `PATH` is too old. | Install a newer git, or put it first on `PATH`. |
-| `gdrift: no git repositories found in <dir>` | Neither `<dir>` nor any directory directly inside it is the top of a git worktree. | Run it in the folder that holds your repositories, or pass that folder: `gdrift ~/code/work`. |
+| `gdrift: no git repositories found in <dir>` | Neither `<dir>` nor any directory below it, down to the depth limit (5 by default), is the top of a git worktree. | Run it in the folder that holds your repositories, or pass that folder: `gdrift ~/code/work`. Raise the limit with `--depth` if they are deeper. |
+| `gdrift: --depth must be 1 or more` | `--depth` was 0 or negative. | Pass a positive number, for example `--depth 3`. |
 | `terminal too small (need 60×15)` | The window is below the minimum size. | Enlarge the window. Pull and delete cannot be confirmed until it fits. |
+
+## The Repos pane shows no rows
+
+| Message | Cause | What to do |
+| --- | --- | --- |
+| `no matching repositories` | The folder tab, the `/` filter and `f` together leave no repository on screen. | Press `esc` in the Repos pane to clear the filter, press `f` to turn the only-here filter off, or switch the folder tab with `[` and `]`. |
 
 ## A repository is missing from the list
 
-gitdrift looks at the folder itself and at the directories directly inside
-it, not deeper. A repository is also left out when:
+gitdrift looks at the folder itself and at the directories below it, up to
+five levels deep. A repository is left out when:
 
+- it is deeper than the depth limit. Start gdrift closer to it, or raise the
+  limit: `gdrift --depth 8`;
+- it is inside a hidden directory, `node_modules` or `vendor`, which are not
+  searched;
+- it is inside another repository's work tree: the search stops at the first
+  work tree git opens, so neither a nested independent repository nor a linked
+  worktree placed inside a work tree is listed. Start gdrift inside the outer
+  repository to see them;
+- you started gdrift in a different folder than you meant to. In your home
+  directory the search walks down to the depth limit, and on macOS this can
+  show permission prompts for Documents, Desktop or Downloads. Run gdrift in
+  your projects folder, or lower `--depth`;
 - git refuses it, for example with "detected dubious ownership" because the
-  directory belongs to another user. Run `git status` in it to see git's
+  directory belongs to another user. The search then goes on inside it, so
+  repositories below it can still be listed. Run `git status` in it to see git's
   message; `git config --global --add safe.directory <path>` accepts it if
   you trust it;
 - the directory cannot be read (permissions);
 - it is a subdirectory of a worktree rather than its top;
 - it is a symbolic link to a repository that is already listed.
 
-Linked worktrees inside the folder get their own rows.
+Linked worktrees inside the folder get their own rows. So do the worktrees of
+a bare clone kept beside them, with `proj/.git` a file that points at
+`proj/.bare` and the worktrees in `proj/main` and `proj/feature`: `proj` has no
+work tree of its own, so the search goes on inside it. A repository the
+search found can also be hidden by the folder tab, the `/` filter or `f`:
+check the tab counts in the Repos title and press `esc` to clear the filter.
 
 ## Fetch problems
 

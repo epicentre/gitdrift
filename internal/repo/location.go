@@ -37,6 +37,11 @@ type Location struct {
 	GitDir string
 	// CommonDir is the git directory shared by all linked worktrees.
 	CommonDir string
+	// Folder is the worktree's parent directory relative to the discovery
+	// root, slash-separated and as walked (not symlink-resolved). It is empty
+	// for the root itself and for its direct children. Only
+	// workspace.Discover sets it; Locate leaves it empty.
+	Folder string
 }
 
 // Locate resolves dir to a worktree root. It returns ErrNotRepo when dir is

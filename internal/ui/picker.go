@@ -119,7 +119,7 @@ func (p basePicker) view(env dialogEnv, _, height int) dialogView {
 		body = append(body, env.st.Muted.Render(noMatches))
 	}
 
-	return dialogView{title: "Base for " + sanitize(p.loc.Name), body: body, footer: footerPicker, width: p.width()}
+	return dialogView{title: "Base for " + repoLabel(p.loc), body: body, footer: footerPicker, width: p.width()}
 }
 
 // width fits every entry whatever the filter: the widest name after the

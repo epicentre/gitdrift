@@ -18,6 +18,7 @@ import (
 // starts at the same column.
 const (
 	compactName = iota
+	compactFolder
 	compactBranch
 	compactLocal
 	compactUpstream
@@ -28,11 +29,12 @@ const (
 	compactColumns
 )
 
-// Visible minimums of the compact name and branch columns: too narrow a row
-// cuts the branch, then the name, down to these widths before it drops status
-// columns.
+// Visible minimums of the compact name, folder and branch columns: too
+// narrow a row cuts the folder, then the branch, then the name, down to these
+// widths before it drops columns.
 const (
 	compactNameMin   = 13
+	compactFolderMin = 10
 	compactBranchMin = 10
 )
 
@@ -40,6 +42,7 @@ const (
 // the selection mark after it.
 const (
 	tableRepo = iota
+	tableFolder
 	tableBranch
 	tableLocal
 	tableUpstream
@@ -74,18 +77,22 @@ const (
 	rowPrefixWidth = 2
 )
 
-// newCompactLayout fits the compact rows of rows, every row of the list, in
-// rows width cells wide. A column with values is at least as wide as its
-// title, so that the header is never cut; a column without values takes no
-// room. Too narrow a row cuts the branch, then the name, down to their
-// minimums, then drops the status columns and their titles: GONE, HERE,
-// INCOMING, BASE, then LOCAL, and UPSTREAM, the main drift signal, last.
-func newCompactLayout(rows []row, width int, st Styles) columnLayout {
+// newCompactLayout fits the compact rows of rows, every row of the list in
+// the folder tab named tab, in rows width cells wide. A column with values is
+// at least as wide as its title, so that the header is never cut; a column
+// without values takes no room, so a flat workspace, or a tab whose
+// repositories sit directly in it, has no FOLDER column. Too narrow a row
+// cuts the folder from the left (see cutFolder), then the branch, then the
+// name, down to their minimums, then drops columns and their titles: GONE,
+// HERE, INCOMING, BASE, FOLDER, then LOCAL, and UPSTREAM, the main drift
+// signal, last.
+func newCompactLayout(rows []row, tab string, width int, st Styles) columnLayout {
 	cols := []column{
-		compactName:     {min: compactNameMin, shrink: 2},
-		compactBranch:   {min: compactBranchMin, shrink: 1},
-		compactLocal:    {drop: 5},
-		compactUpstream: {drop: 6},
+		compactName:     {min: compactNameMin, shrink: 3},
+		compactFolder:   {min: compactFolderMin, shrink: 1, drop: 5, cut: cutFolder},
+		compactBranch:   {min: compactBranchMin, shrink: 2},
+		compactLocal:    {drop: 6},
+		compactUpstream: {drop: 7},
 		compactBase:     {drop: 4},
 		compactIncoming: {drop: 3, style: st.Badge},
 		compactHere:     {drop: 2},
@@ -93,7 +100,7 @@ func newCompactLayout(rows []row, width int, st Styles) columnLayout {
 	}
 
 	for _, r := range rows {
-		include(cols, compactCells(r.snap, r.loaded))
+		include(cols, compactCells(r.snap, r.loaded, tab))
 	}
 
 	for i, title := range compactHeader() {
@@ -107,7 +114,7 @@ func newCompactLayout(rows []row, width int, st Styles) columnLayout {
 
 // compactHeader returns the column titles of the compact rows.
 func compactHeader() []string {
-	return []string{"REPO", "BRANCH", "LOCAL", "UPSTREAM", "BASE", "INCOMING", "HERE", "GONE"}
+	return []string{"REPO", "FOLDER", "BRANCH", "LOCAL", "UPSTREAM", "BASE", "INCOMING", "HERE", "GONE"}
 }
 
 // repoHeader renders the titles of the columns l shows, muted and aligned
@@ -116,12 +123,13 @@ func repoHeader(l columnLayout, st Styles) string {
 	return strings.Repeat(" ", rowPrefixWidth) + l.withStyle(st.Muted).render(compactHeader())
 }
 
-// compactCells returns the cells of the compact row of s: its name and, once
-// it was read, its branch and status tokens; a cell is empty when its token
-// does not apply.
-func compactCells(s drift.Snapshot, loaded bool) []string {
+// compactCells returns the cells of the compact row of s in the folder tab
+// named tab: its name and folder (see folderLabel) and, once it was read, its
+// branch and status tokens; a cell is empty when its token does not apply.
+func compactCells(s drift.Snapshot, loaded bool, tab string) []string {
 	cells := make([]string, compactColumns)
 	cells[compactName] = sanitize(s.Loc.Name)
+	cells[compactFolder] = sanitize(folderLabel(s.Loc.Folder, tab))
 
 	if !loaded {
 		return cells
@@ -155,13 +163,13 @@ func compactCells(s drift.Snapshot, loaded bool) []string {
 	return cells
 }
 
-// repoRow renders the compact row of one repository laid out by l: status
-// marker, pull selection mark, then the columns. A row not read yet shows
-// "fetching…", and a row with a note shows the note, across the status
-// columns.
-func repoRow(s drift.Snapshot, loaded, selected bool, note token, l columnLayout, st Styles) string {
+// repoRow renders the compact row of one repository in the folder tab named
+// tab laid out by l: status marker, pull selection mark, then the columns. A
+// row not read yet shows "fetching…", and a row with a note shows the note,
+// across the status columns.
+func repoRow(s drift.Snapshot, loaded, selected bool, note token, tab string, l columnLayout, st Styles) string {
 	prefix := marker(s, loaded, st) + selectMark(selected, " ", st)
-	cells := compactCells(s, loaded)
+	cells := compactCells(s, loaded, tab)
 
 	if !loaded {
 		note = token{text: fetching, style: st.Muted}
@@ -174,13 +182,16 @@ func repoRow(s drift.Snapshot, loaded, selected bool, note token, l columnLayout
 	return prefix + l.render(cells)
 }
 
-// newTableLayout fits the zoom table of rows, every row of the list, in rows
-// width cells wide. Each column is as wide as its title or its longest
-// value. Too narrow a row cuts the branch, then the name, down to the mockup
-// widths, then drops columns from the right.
-func newTableLayout(rows []row, width int, now time.Time) columnLayout {
+// newTableLayout fits the zoom table of rows, every row of the list in the
+// folder tab named tab, in rows width cells wide. Each column is as wide as
+// its title or its longest value; FOLDER is shown only when a row has a
+// folder below the tab, and then always in full. Too narrow a row cuts the
+// branch, then the name, down to the mockup widths, then drops columns from
+// the right.
+func newTableLayout(rows []row, tab string, width int, now time.Time) columnLayout {
 	cols := []column{
 		tableRepo:     {min: tableNameMinWidth + tableSelectWidth, shrink: 2},
+		tableFolder:   {},
 		tableBranch:   {min: tableBranchMinWidth, shrink: 1},
 		tableLocal:    {drop: 7},
 		tableUpstream: {drop: 6},
@@ -191,13 +202,17 @@ func newTableLayout(rows []row, width int, now time.Time) columnLayout {
 		tableUpdated:  {drop: 1},
 	}
 
-	include(cols, tableHeader())
-
 	for _, r := range rows {
-		include(cols, tableCells(r.snap, r.loaded, now))
+		include(cols, tableCells(r.snap, r.loaded, tab, now))
 
 		name := ansi.StringWidth(sanitize(r.snap.Loc.Name)) + tableSelectWidth
 		cols[tableRepo].width = max(cols[tableRepo].width, name)
+	}
+
+	for i, title := range tableHeader() {
+		if i != tableFolder || cols[i].width > 0 {
+			cols[i].width = max(cols[i].width, ansi.StringWidth(title))
+		}
 	}
 
 	return layoutColumns(cols, width-rowPrefixWidth)
@@ -205,14 +220,16 @@ func newTableLayout(rows []row, width int, now time.Time) columnLayout {
 
 // tableHeader returns the column titles of the zoom table.
 func tableHeader() []string {
-	return []string{"REPO", "BRANCH", "LOCAL", "UPSTREAM", "VS BASE", "INCOMING", "HERE", "GONE", "UPDATED"}
+	return []string{"REPO", "FOLDER", "BRANCH", "LOCAL", "UPSTREAM", "VS BASE", "INCOMING", "HERE", "GONE", "UPDATED"}
 }
 
-// tableCells returns the cells of the zoom table row of s after REPO, which
-// depends on the column width (see tableRepoCell); a row not read yet has
-// none.
-func tableCells(s drift.Snapshot, loaded bool, now time.Time) []string {
+// tableCells returns the cells of the zoom table row of s in the folder tab
+// named tab after REPO, which depends on the column width (see
+// tableRepoCell); a row not read yet has only its folder.
+func tableCells(s drift.Snapshot, loaded bool, tab string, now time.Time) []string {
 	cells := make([]string, tableColumns)
+	cells[tableFolder] = sanitize(folderLabel(s.Loc.Folder, tab))
+
 	if !loaded {
 		return cells
 	}
@@ -243,12 +260,14 @@ func repoTableHeader(l columnLayout) string {
 	return strings.Repeat(" ", rowPrefixWidth) + l.render(tableHeader())
 }
 
-// repoTableRow renders one repository as a zoom table row laid out by l. A
-// row not read yet shows "fetching…", and a row with a note shows the note,
-// in place of the columns after BRANCH.
-func repoTableRow(s drift.Snapshot, loaded, selected bool, note token, l columnLayout, st Styles, now time.Time) string {
+// repoTableRow renders one repository in the folder tab named tab as a zoom
+// table row laid out by l. A row not read yet shows "fetching…", and a row
+// with a note shows the note, in place of the columns after BRANCH.
+func repoTableRow(
+	s drift.Snapshot, loaded, selected bool, note token, tab string, l columnLayout, st Styles, now time.Time,
+) string {
 	prefix := marker(s, loaded, st) + " "
-	cells := tableCells(s, loaded, now)
+	cells := tableCells(s, loaded, tab, now)
 	cells[tableRepo] = tableRepoCell(s, selected, l.widths[tableRepo], st)
 
 	if !loaded {
@@ -291,6 +310,55 @@ func selectMark(selected bool, blank string, st Styles) string {
 	}
 
 	return st.Selected.Render("●") + blank[1:]
+}
+
+// folderLabel is folder, a repository's slash-separated folder below the
+// workspace, as the FOLDER column shows it in the folder tab named tab: the
+// path below the tab, empty for a repository directly in it. In the All tab
+// ("") it is the whole folder, empty at the root.
+func folderLabel(folder, tab string) string {
+	if tab == "" {
+		return folder
+	}
+
+	if folder == tab {
+		return ""
+	}
+
+	if below, ok := strings.CutPrefix(folder, tab+"/"); ok {
+		return below
+	}
+
+	return folder
+}
+
+// folderCutMark starts a folder cut at a folder boundary.
+const folderCutMark = "…/"
+
+// cutFolder shortens folder to at most width cells for the FOLDER column:
+// whole when it fits, else "…/" and as many of its last folder names, each
+// whole, as fit; only when even "…/" and the last name are too wide is it
+// cut from the left like any value (see cutLeft).
+func cutFolder(folder string, width int) string {
+	if ansi.StringWidth(folder) <= width {
+		return folder
+	}
+
+	var kept string
+
+	for i := strings.LastIndex(folder, "/"); i >= 0; i = strings.LastIndex(folder[:i], "/") {
+		if ansi.StringWidth(folderCutMark+folder[i+1:]) > width {
+			break
+		}
+
+		kept = folder[i+1:]
+	}
+
+	if kept == "" {
+		return cutLeft(folder, width)
+	}
+
+	return folderCutMark + kept
 }
 
 // branchLabel is the checked-out branch, or the short HEAD in parentheses
@@ -458,13 +526,11 @@ func (r row) rank() drift.Category {
 	return r.category
 }
 
-// sortRows orders rows by category, then name, then path.
+// sortRows orders rows by category, rows not read yet last, then by folder,
+// name and path (see drift.CompareLocations). In a flat workspace every
+// folder is empty, so the order is by category, then name.
 func sortRows(rows []row) {
 	slices.SortStableFunc(rows, func(a, b row) int {
-		return cmp.Or(
-			cmp.Compare(a.rank(), b.rank()),
-			cmp.Compare(a.snap.Loc.Name, b.snap.Loc.Name),
-			cmp.Compare(a.snap.Loc.Path, b.snap.Loc.Path),
-		)
+		return cmp.Or(cmp.Compare(a.rank(), b.rank()), drift.CompareLocations(a.snap.Loc, b.snap.Loc))
 	})
 }

@@ -67,9 +67,10 @@ Only `internal/git` starts processes.
 ## Main flows
 
 **Start.** `start` checks for a terminal and git 2.30 or newer, discovers
-repositories (the root and its direct children; symlinks are deduplicated by
-resolved path; unreadable directories are skipped), groups them, and starts
-the UI. The UI asks the workspace to refresh every group with a fetch.
+repositories (the root and the directories below it down to `--depth`,
+default 5; see decision 16), groups them, and starts the UI. The UI shows a
+FOLDER column and folder tabs when repositories sit in folders
+(decision 17). The UI asks the workspace to refresh every group with a fetch.
 
 **Refresh.** For one group: take a concurrency slot (8 by default), take the
 group lock, fetch every remote (each refused or failed remote is recorded),
@@ -172,11 +173,13 @@ one, and the old one's status says so.
 | [8](0008-quit-waits-for-git-writes.md) | Quitting waits for git writes | Accepted |
 | [9](0009-resolve-the-base-branch.md) | Resolve the base branch from repo, global, then auto | Accepted |
 | [10](0010-post-pull-badges.md) | Post-pull badges from incoming file names | Accepted |
-| [11](0011-pane-layout-and-aligned-columns.md) | One screen of panes with aligned, full-width columns | Accepted |
+| [11](0011-pane-layout-and-aligned-columns.md) | One screen of panes with aligned, full-width columns | Accepted (compact drop order superseded by 17) |
 | [12](0012-sanitize-repository-text.md) | Treat repository text as untrusted | Accepted |
 | [13](0013-confirm-only-what-is-on-screen.md) | Confirm only what is on screen | Accepted |
 | [14](0014-test-against-real-git.md) | Test against real git with isolated config | Accepted |
 | [15](0015-tooling-and-supply-chain.md) | Pin tools in a module and actions by commit SHA | Accepted |
+| [16](0016-discover-repositories-recursively.md) | Discover repositories recursively, bounded by a depth | Accepted |
+| [17](0017-folders-in-the-repos-pane.md) | Show folders in the Repos pane: column, tabs and a filter | Accepted |
 
 ### Adding a decision
 
