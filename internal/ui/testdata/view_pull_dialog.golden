@@ -1,23 +1,23 @@
 gitdrift  ~/code/work                            6 repos · 3 behind · 2 need attention · 2 only here
-╭─ 1 Repos ────────────────────────────────╮╭─ 4 Diff ─────────────────────────────────────────────╮
-│   REPO          BRANCH     LOCAL UPSTREAM││                                                      │
-│▸! billing       feature/v…       ok      ││                                                      │
-│ ! payments      feature/c… *2    ↑3↓12   ││                                                      │
-│ ↓ api-gateway   main             ↓12     ││                                                      │
-│ ↓ notifications main             ↓4      ││                                                      │
-│ ✓ auth          main             ok      ││                                                      │
-│ ✓ infra         main         ╭─ Pull 2 repositories? ─────────────╮                              │
-│                              │ api-gateway    main  ↓12 → a1b2c3d │                              │
-│                              │ notifications  main  ↓ 4 → a1b2c3d │                              │
-│                              │                                    │                              │
-│                              │ y pull · n cancel                  │                              │
-│                              ╰────────────────────────────────────╯                              │
+┏━ 1 Repos (6) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃   REPO              BRANCH               LOCAL    UPSTREAM    BASE       INCOMING    HERE    GONE┃
+┃▸! billing           feature/vat                   ok          base↓27                            ┃
+┃ ! payments          feature/checkout     *2       ↑3↓12       base↓27    deps mig    ⌂6      ✂2  ┃
+┃ ↓ api-gateway       main                          ↓12                    deps                    ┃
+┃ ↓ notifications     main                          ↓4                     mig env                 ┃
+┃ ✓ auth              main                          ok                                 ⌂1          ┃
+┃ ✓ infra             main     ┏━ Pull 2 repositories? ━━━━━━━━━━━━━┓                          ✂3  ┃
+┃                              ┃ api-gateway    main  ↓12 → a1b2c3d ┃                              ┃
+┃                              ┃ notifications  main  ↓ 4 → a1b2c3d ┃                              ┃
+┃                              ┃                                    ┃                              ┃
+┃                              ┃ y pull · n cancel                  ┃                              ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+╭─ 2 Commits  [Incoming]  Base  Loc  Br ───╮╭─ 4 Diff ─────────────────────────────────────────────╮
+│ no incoming commits                      ││                                                      │
 │                                          ││                                                      │
 ╰──────────────────────────────────────────╯│                                                      │
-╭─ 2 [Incoming]  Base 27  Local  Branches ─╮│                                                      │
-│ no incoming commits                      ││                                                      │
-╰──────────────────────────────────────────╯│                                                      │
 ╭─ 3 Files ────────────────────────────────╮│                                                      │
+│                                          ││                                                      │
 │                                          ││                                                      │
 ╰──────────────────────────────────────────╯╰──────────────────────────────────────────────────────╯
 billing · base origin/main (auto) · 27 behind origin/main

@@ -683,8 +683,8 @@ func TestReposPaneHeader(t *testing.T) {
 		width, height int
 		titles        []string
 	}{
-		{"120x40", 120, 40, []string{titleRepo, titleBranch, titleLocal, titleUpstream, titleBase}},
-		{"100x24", 100, 24, []string{titleRepo, titleBranch, titleLocal, titleUpstream}},
+		{"120x40", 120, 40, []string{titleRepo, titleBranch, titleLocal, titleUpstream, titleBase, "INCOMING", titleHere, titleGone}},
+		{"60x24", 60, 24, []string{titleRepo, titleBranch, titleLocal, titleUpstream, titleBase}},
 	}
 
 	for _, tt := range tests {
@@ -714,13 +714,14 @@ func TestReposPaneHeader(t *testing.T) {
 	}
 }
 
-// TestReposPaneHeaderCollapsed checks that a collapsed Repos pane gives
-// every line to repositories.
+// TestReposPaneHeaderCollapsed checks that a Repos pane shrunk to three
+// lines, on the smallest screen with focus below it, gives every line to
+// repositories.
 func TestReposPaneHeaderCollapsed(t *testing.T) {
 	t.Parallel()
 	skipEastAsianWidths(t)
 
-	m, _ := loadedModel(t, fixtureSnapshots(fixedNow), 120, 40)
+	m, _ := loadedModel(t, fixtureSnapshots(fixedNow), minWidth, minHeight)
 	m = press(t, m, "2")
 	lines := paneInside(t, m, PaneRepos)
 
@@ -921,10 +922,9 @@ func compactLines(t *testing.T, rows []row, width int) (header string, lines []s
 }
 
 // TestRepoRowsNestedFolderColumn checks the FOLDER column of the compact
-// rows: right after REPO, empty for a repository at the root. On a
-// 150-column screen, the width of the README screenshots, the pane keeps
-// BASE and shows the deepest folder name whole after "…/"; with room for
-// every column each folder shows in full.
+// rows: right after REPO, empty for a repository at the root. In a pane 66
+// cells wide BASE stays and the deepest folder name shows whole after "…/";
+// with room for every column each folder shows in full.
 func TestRepoRowsNestedFolderColumn(t *testing.T) {
 	t.Parallel()
 	skipEastAsianWidths(t)
@@ -936,14 +936,14 @@ func TestRepoRowsNestedFolderColumn(t *testing.T) {
 		folders map[string]string
 	}{
 		{
-			name: "150x40 pane",
+			name: "66x40 pane",
 			lines: func(t *testing.T) (string, []string) {
 				t.Helper()
 
-				m, _ := loadedModel(t, fixtureNested(fixedNow), 150, 40)
-				lines := paneInside(t, m, PaneRepos)
+				m, _ := loadedModel(t, fixtureNested(fixedNow), 66, 40)
+				header, lines, _ := reposPane(t, m)
 
-				return lines[0], lines[1:]
+				return header, lines
 			},
 			titles:  []string{titleRepo, titleFolder, titleBranch, titleLocal, titleUpstream, titleBase},
 			folders: map[string]string{namePayments: folderServices, nameNotifications: platformCut, nameStorefront: folderWeb, "docs": ""},
@@ -1050,8 +1050,8 @@ func TestRepoRowsFolderDropOrder(t *testing.T) {
 		titles        []string
 		folder        string
 	}{
-		{138, 40, all[:5], platformCut},
-		{100, 24, []string{titleRepo, titleBranch, titleLocal, titleUpstream}, ""},
+		{60, 40, all[:5], platformCut},
+		{150, 40, all, folderPlatform},
 	}
 
 	for _, p := range panes {
@@ -1059,9 +1059,8 @@ func TestRepoRowsFolderDropOrder(t *testing.T) {
 			t.Parallel()
 
 			m, _ := loadedModel(t, fixtureNested(fixedNow), p.width, p.height)
-			lines := paneInside(t, m, PaneRepos)
+			header, lines, _ := reposPane(t, m)
 
-			header := lines[0]
 			if diff := cmp.Diff(p.titles, strings.Fields(header)); diff != "" {
 				t.Fatalf("header %q titles mismatch (-want +got):\n%s", header, diff)
 			}
@@ -1152,5 +1151,18 @@ func TestFlatFixtureUnchanged(t *testing.T) {
 				t.Errorf("flat view at %dx%d shows FOLDER:\n%s", size[0], size[1], view)
 			}
 		}
+	}
+}
+
+// TestRepoHeaderIsBold checks that the column titles are drawn in the bold
+// heading style, so that they stand apart from the rows.
+func TestRepoHeaderIsBold(t *testing.T) {
+	t.Parallel()
+
+	m, _ := loadedModel(t, fixtureSnapshots(fixedNow), 150, 40)
+	l := newCompactLayout(m.rowsAt(m.visible()), "", 140, m.styles)
+
+	if h := repoHeader(l, m.styles); !strings.Contains(h, m.styles.Heading.Render(titleRepo)) {
+		t.Errorf("repoHeader() = %q, want REPO in the heading style", h)
 	}
 }

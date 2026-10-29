@@ -156,8 +156,9 @@ stashes). Choose a commit to see its files and its diff in panes 3 and 4.
 
 ### Folder tabs and the filter
 
-When repositories sit in folders, the Repos pane title gets tabs: **All**, then
-one tab for each top-level folder, with the number of repositories in it. A
+When repositories sit in folders, the first line of the Repos pane holds tabs:
+**All**, then one tab for each top-level folder, with the number of
+repositories in it; the active tab is drawn as a filled box. A
 repository directly in the folder you started in shows only in All. In a folder
 tab the FOLDER column shows the path below that tab. Press `←` and `→` (or
 `h` and `l`, or `[` and `]`) in the Repos pane to move between the tabs.
@@ -208,9 +209,11 @@ cancel). `ctrl+c` quits even while a dialog is open.
 
 ## Features
 
-- Four panes: **1 Repos**, **2 Commits** (tabs Incoming, Base, Local,
-  Branches), **3 Files** (or **Only here** on the Branches tab) and **4 Diff**.
-  `z` zooms the Repos pane into a table with one column per question.
+- Four panes: **1 Repos** across the top, and below it **2 Commits** (tabs
+  Incoming, Base, Local, Branches) over **3 Files** (or **Only here** on the
+  Branches tab), beside **4 Diff**. The focused pane has a thick border and
+  gets most of the room. `z` zooms the Repos pane into a table with one
+  column per question.
 - Safe, confirmed pull: fast-forward only, one repository or all safe ones,
   after a dialog that names the exact commit you will get.
 - Nested workspaces: repositories are found several levels down, with a FOLDER

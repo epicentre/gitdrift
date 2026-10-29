@@ -30,11 +30,17 @@ const (
 )
 
 // commitsTitle is the Commits pane title in a pane w cells wide: the pane
-// key and the tabs.
+// key and name, then the tabs. When the tabs do not fit after the name, the
+// name gives way so that the active tab stays whole.
 func (m Model) commitsTitle(w int) string {
 	s, _ := m.detailSnapshot()
+	room := w - boxTitleChrome
 
-	return titleCommits + tabTitle(s, m.detail.tab, w-boxTitleChrome-ansi.StringWidth(titleCommits))
+	if title := titleCommits + tabTitle(s, m.detail.tab, room-ansi.StringWidth(titleCommits)); ansi.StringWidth(title) <= room {
+		return title
+	}
+
+	return titleCommitsKey + tabTitle(s, m.detail.tab, room-ansi.StringWidth(titleCommitsKey))
 }
 
 // commitsLines renders the inside of the Commits pane.

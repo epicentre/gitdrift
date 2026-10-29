@@ -120,7 +120,7 @@ func compactHeader() []string {
 // repoHeader renders the titles of the columns l shows, muted and aligned
 // with repoRow; the marker and selection columns have none.
 func repoHeader(l columnLayout, st Styles) string {
-	return strings.Repeat(" ", rowPrefixWidth) + l.withStyle(st.Muted).render(compactHeader())
+	return strings.Repeat(" ", rowPrefixWidth) + l.withStyle(st.Heading).render(compactHeader())
 }
 
 // compactCells returns the cells of the compact row of s in the folder tab

@@ -439,8 +439,8 @@ func TestDeleteGoneFlow(t *testing.T) {
 	}
 
 	assertViewContains(t, m, "Delete 1 gone branch in payments?", cashRoundingDeleteLine, "y delete · n cancel")
-	assertViewHasRow(t, m, "│", "e4f5a6b fix: cash rounding", "3w", "│")
-	assertViewHasRow(t, m, "│", "5a6b7c8 wip: cash test", "3w", "│")
+	assertViewHasRow(t, m, "┃", "e4f5a6b fix: cash rounding", "3w", "┃")
+	assertViewHasRow(t, m, "┃", "5a6b7c8 wip: cash test", "3w", "┃")
 
 	m, cmd := pressCmd(t, m, "y")
 	done := runCmd(cmd)
@@ -591,8 +591,8 @@ func TestDeleteDialogTruncatesCommits(t *testing.T) {
 		}
 	}
 
-	assertViewHasRow(t, m, "│", "c000001 fix: redtext", "1d", "│")
-	assertViewHasRow(t, m, "│", "c000005 change 5", "1d", "│")
+	assertViewHasRow(t, m, "┃", "c000001 fix: redtext", "1d", "┃")
+	assertViewHasRow(t, m, "┃", "c000005 change 5", "1d", "┃")
 
 	for _, unwanted := range []string{"c000006", "c000007"} {
 		if strings.Contains(got, unwanted) {
@@ -1372,8 +1372,8 @@ func TestSameNamedReposAreToldApart(t *testing.T) {
 		}
 
 		m = press(t, m, "P")
-		assertViewHasRow(t, m, "│", "services/api", "main", "↓3 → a1b2c3d", "│")
-		assertViewHasRow(t, m, "│", "web/api", "main", "↓5 → a1b2c3d", "│")
+		assertViewHasRow(t, m, "┃", "services/api", "main", "↓3 → a1b2c3d", "┃")
+		assertViewHasRow(t, m, "┃", "web/api", "main", "↓5 → a1b2c3d", "┃")
 	})
 
 	t.Run("notice of a hidden selection", func(t *testing.T) {

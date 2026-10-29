@@ -351,7 +351,7 @@ func TestDeleteDialogAlignsCommits(t *testing.T) {
 		row := rowOf(t, lines, c.Short)
 		age := relAge(c.When, fixedNow)
 
-		end := runeIndex(row, " "+age+" │", 0) + 1 + utf8.RuneCountInString(age)
+		end := runeIndex(row, " "+age+" ┃", 0) + 1 + utf8.RuneCountInString(age)
 		if end <= utf8.RuneCountInString(age) {
 			t.Fatalf("line %q does not end with its age %s at the window's edge", row, age)
 		}

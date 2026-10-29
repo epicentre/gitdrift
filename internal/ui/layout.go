@@ -22,14 +22,22 @@ const (
 
 	// chromeRows are the header, status and footer lines.
 	chromeRows = 3
-	// leftPercent is the left column's share of a wide screen.
+	// leftPercent is the share of a wide screen that Commits and Files take
+	// below Repos; Diff takes the rest.
 	leftPercent  = 44
 	minLeftWidth = 40
 	// collapsedHeight shows a pane's borders and one line.
 	collapsedHeight = 3
-	// reposShrunkHeight is the Repos pane while Commits or Files has focus.
-	reposShrunkHeight = 5
-	// focusedPercent is the focused left pane's share of the rows left over
+	// bottomPercent is the bottom row's share of the body while Repos has
+	// focus.
+	bottomPercent = 40
+	// reposShrunkHeight is the Repos pane while Commits, Files or Diff has
+	// focus.
+	reposShrunkHeight = 8
+	// minBottomHeight keeps both bottom panes collapsed or larger, and the
+	// focused one a line larger, when the screen is short.
+	minBottomHeight = 2*collapsedHeight + 1
+	// focusedPercent is the focused bottom pane's share of the rows left over
 	// by the shrunk Repos pane.
 	focusedPercent = 60
 )
@@ -72,11 +80,13 @@ func (l *Layout) rect(p Pane) *Rect {
 }
 
 // ComputeLayout places the panes on a width x height screen. The header
-// takes the first row and the status and footer lines the last two. The left
-// column stacks Repos, Commits and Files; the Diff pane fills the right
-// unless the screen is narrow. The focused left pane gets most of the
-// column; with focus on Diff the column keeps the sizes of lastLeft. With
-// zoom the focused pane takes the whole body.
+// takes the first row and the status and footer lines the last two. Repos
+// spans the top; below it Commits is stacked on Files at the left and the
+// Diff pane fills the right unless the screen is narrow. Repos with focus
+// leaves the bottom row bottomPercent of the body; Commits or Files with
+// focus shrinks Repos and gets most of the bottom row. With focus on Diff
+// the panes keep the sizes of lastLeft, sized as for Commits when that is
+// Repos. With zoom the focused pane takes the whole body.
 func ComputeLayout(width, height int, focus, lastLeft Pane, zoom bool) Layout {
 	var lay Layout
 
@@ -96,40 +106,48 @@ func ComputeLayout(width, height int, focus, lastLeft Pane, zoom bool) Layout {
 		return lay
 	}
 
+	sizing := focus
+	if sizing == PaneDiff {
+		sizing = lastLeft
+		if sizing == PaneRepos {
+			sizing = PaneCommits
+		}
+	}
+
+	repos, commits, files := paneHeights(body.H, sizing)
+	lay.Repos = Rect{X: 0, Y: body.Y, W: width, H: repos}
+	bottomY := body.Y + repos
+
 	leftW := width
 	if width < narrowWidth {
 		lay.DiffHidden = true
 	} else {
 		leftW = max(width*leftPercent/100, minLeftWidth)
-		lay.Diff = Rect{X: leftW, Y: body.Y, W: width - leftW, H: body.H}
+		lay.Diff = Rect{X: leftW, Y: bottomY, W: width - leftW, H: commits + files}
 	}
 
-	sizing := focus
-	if sizing != PaneCommits && sizing != PaneFiles && sizing != PaneRepos {
-		sizing = lastLeft
-	}
-
-	repos, commits, files := leftHeights(body.H, sizing)
-	lay.Repos = Rect{X: 0, Y: body.Y, W: leftW, H: repos}
-	lay.Commits = Rect{X: 0, Y: body.Y + repos, W: leftW, H: commits}
-	lay.Files = Rect{X: 0, Y: body.Y + repos + commits, W: leftW, H: files}
+	lay.Commits = Rect{X: 0, Y: bottomY, W: leftW, H: commits}
+	lay.Files = Rect{X: 0, Y: bottomY + commits, W: leftW, H: files}
 
 	return lay
 }
 
-// leftHeights splits the body rows between the left panes for the given
-// focused left pane; anything other than Commits or Files sizes for Repos.
-func leftHeights(body int, focus Pane) (repos, commits, files int) {
+// paneHeights splits the body rows between Repos and the bottom row, whose
+// rows Commits and Files share, for the given focused pane; anything other
+// than Commits or Files sizes for Repos.
+func paneHeights(body int, focus Pane) (repos, commits, files int) {
 	if focus != PaneCommits && focus != PaneFiles {
-		return body - 2*collapsedHeight, collapsedHeight, collapsedHeight
+		bottom := max(body*bottomPercent/100, 2*collapsedHeight)
+
+		return body - bottom, bottom / 2, bottom - bottom/2
 	}
 
-	rest := body - reposShrunkHeight
+	rest := max(body-reposShrunkHeight, minBottomHeight)
 	focused := rest * focusedPercent / 100
 
 	if focus == PaneCommits {
-		return reposShrunkHeight, focused, rest - focused
+		return body - rest, focused, rest - focused
 	}
 
-	return reposShrunkHeight, rest - focused, focused
+	return body - rest, rest - focused, focused
 }

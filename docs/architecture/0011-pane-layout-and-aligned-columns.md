@@ -1,7 +1,8 @@
 # 11. One screen of panes with aligned, full-width columns
 
 - Status: Accepted. The compact drop order is superseded by
-  [17](0017-folders-in-the-repos-pane.md).
+  [17](0017-folders-in-the-repos-pane.md), the pane layout by
+  [19](0019-repos-pane-on-top.md).
 - Date: 2026-10-28
 
 ## Context

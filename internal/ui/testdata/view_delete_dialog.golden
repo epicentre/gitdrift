@@ -1,21 +1,21 @@
 gitdrift  ~/code/work                            6 repos · 3 behind · 2 need attention · 2 only here
-╭─ 1 Repos ────────────────────────────────╮╭─ 4 Diff ─────────────────────────────────────────────╮
-│ ! billing       feature/v…       ok      ││                                                      │
-│▸! payments      feature/c… *2    ↑3↓12   ││                                                      │
-│   … 4 more                               ││                                                      │
-╰──────────────────────────────────────────╯│                                                      │
-╭─ 2 Inc  Base  Loc  [Branches ✂2 ⌂6] ─────╮│                                                      │
-│ GONE · deleted╭─ Delete 2 gone branches in payments? ────────────────────────────╮               │
-│ [x] feature/ca│ feature/cash-rounding (e4f5a6b), 2 commits only on this machine: │               │
-│▸[x] feature/qr│   e4f5a6b fix: cash rounding                                  3w │               │
-│ ONLY ON THIS M│   5a6b7c8 wip: cash test                                      3w │               │
-│     feature/ch│                                                                  │               │
-│     stash@{0} │ feature/qr-login (b7c8d9e), 0 commits only on this machine       │               │
-│               │                                                                  │               │
-╰───────────────│ y delete · n cancel                                              │               │
-╭─ 3 Only here ·╰──────────────────────────────────────────────────────────────────╯               │
+╭─ 1 Repos (6) ────────────────────────────────────────────────────────────────────────────────────╮
+│   REPO              BRANCH               LOCAL    UPSTREAM    BASE       INCOMING    HERE    GONE│
+│ ! billing           feature/vat                   ok          base↓27                            │
+│▸! payments          feature/checkout     *2       ↑3↓12       base↓27    deps mig    ⌂6      ✂2  │
+│ ↓ api-gateway       main                          ↓12                    deps                    │
+│ ↓ notifications     main                          ↓4                     mig env                 │
+│   … 2 more    ┏━ Delete 2 gone branches in payments? ━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓               │
+╰───────────────┃ feature/cash-rounding (e4f5a6b), 2 commits only on this machine: ┃───────────────╯
+┏━ 2 Inc  Base  ┃   e4f5a6b fix: cash rounding                                  3w ┃───────────────╮
+┃ GONE · deleted┃   5a6b7c8 wip: cash test                                      3w ┃               │
+┃ [x] feature/ca┃                                                                  ┃               │
+┃▸[x] feature/qr┃ feature/qr-login (b7c8d9e), 0 commits only on this machine       ┃               │
+┃ ONLY ON THIS M┃                                                                  ┃               │
+┃  … 2 more     ┃ y delete · n cancel                                              ┃               │
+┗━━━━━━━━━━━━━━━┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛               │
+╭─ 3 Only here · feature/qr-login ─────────╮│                                                      │
 │ no commits only on this machine          ││                                                      │
-│                                          ││                                                      │
 │                                          ││                                                      │
 │                                          ││                                                      │
 │                                          ││                                                      │

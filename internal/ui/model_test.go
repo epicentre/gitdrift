@@ -48,7 +48,7 @@ const (
 
 	// titleCommitsTabs starts the Commits pane title with the Incoming tab
 	// active.
-	titleCommitsTabs = "2 [Incoming"
+	titleCommitsTabs = "2 Commits  [Incoming"
 )
 
 // eastAsianWidths reports whether RUNEWIDTH_EASTASIAN turns on East Asian
@@ -560,9 +560,9 @@ func TestReposPaneScrolls(t *testing.T) {
 	m, fake := newTestModel(t, headerSnapshots(fixedNow), 100, 24)
 	m = loadAll(t, m, fake)
 
-	// 13 inner lines: the header, 11 repositories and … 21 more.
+	// 11 inner lines: the header, 9 repositories and … 23 more.
 	lines := paneInside(t, m, PaneRepos)
-	if !strings.HasPrefix(lines[0], "   REPO ") || !strings.HasPrefix(lines[12], "   … 21 more") {
+	if !strings.HasPrefix(lines[0], "   REPO ") || !strings.HasPrefix(lines[10], "   … 23 more") {
 		t.Errorf("Repos pane does not start with the header and end with … 21 more:\n%s", strings.Join(lines, "\n"))
 	}
 
@@ -570,8 +570,8 @@ func TestReposPaneScrolls(t *testing.T) {
 
 	lines = paneInside(t, m, PaneRepos)
 	if !strings.HasPrefix(lines[0], "   REPO ") || strings.Contains(strings.Join(lines, "\n"), "more") ||
-		!strings.HasPrefix(lines[12], "▸✓ service-26") {
-		t.Errorf("after end the header does not stay above the last 12 rows:\n%s", strings.Join(lines, "\n"))
+		!strings.HasPrefix(lines[10], "▸✓ service-26") {
+		t.Errorf("after end the header does not stay above the last 10 rows:\n%s", strings.Join(lines, "\n"))
 	}
 
 	m = press(t, m, keyHome, "z")
@@ -702,6 +702,8 @@ func TestViewResizeSweep(t *testing.T) {
 		{"zoomed", press(t, base, "z"), repos},
 		{"commits", press(t, base, "2"), detail},
 		{"files", press(t, base, "3"), detail},
+		{"diff", press(t, base, "4"), detail},
+		{"diff after files", press(t, base, "3", "4"), detail},
 		{"branches", pressSettle(t, base, "2", "["), detail},
 		{"folder tab", press(t, base, "]"), repos},
 		{"folder tab zoomed", press(t, base, "]", "z"), repos},
@@ -767,6 +769,12 @@ func assertViewFits(t *testing.T, m Model, size tea.WindowSizeMsg) {
 
 	assertPanesFit(t, at, lines, lay)
 	assertListsFit(t, at, m, lay)
+
+	// A Diff pane that takes the whole narrow screen leaves no Repos pane.
+	if lay.Repos.W <= 0 || lay.Repos.H <= 0 {
+		return
+	}
+
 	assertReposHeader(t, at, m, lay)
 
 	inner := lay.Repos.W - 2
@@ -800,7 +808,8 @@ func assertReposHeader(t *testing.T, at string, m Model, lay Layout) {
 		}
 	}
 
-	if got := strings.Fields(ansi.Strip(m.reposLines(lay.Repos)[0])); !slices.Equal(want, got) {
+	header := m.reposLines(lay.Repos)[m.reposTabBarRows(lay.Repos)]
+	if got := strings.Fields(ansi.Strip(header)); !slices.Equal(want, got) {
 		t.Fatalf("%s: header titles %q, want %q", at, got, want)
 	}
 }
@@ -875,14 +884,17 @@ func cellsOf(line string) []string {
 	return cells
 }
 
-// isBorder reports whether cell is a rune of a pane border's side.
+// isBorder reports whether cell is a rune of a pane border's side, thin or
+// thick.
 func isBorder(cell string) bool {
-	switch cell {
-	case borderVertical, borderTopLeft, borderTopRight, borderBottomLeft, borderBottomRight:
-		return true
-	default:
-		return false
+	for _, b := range []borderRunes{thinBorder, thickBorder} {
+		switch cell {
+		case b.vertical, b.topLeft, b.topRight, b.bottomLeft, b.bottomRight:
+			return true
+		}
 	}
+
+	return false
 }
 
 func TestViewGoldenMain(t *testing.T) {

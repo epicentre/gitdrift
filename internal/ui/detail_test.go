@@ -220,7 +220,7 @@ func TestDetailIncomingFlow(t *testing.T) {
 	assertCalls(t, fake, "FileDiff", []string{
 		fmt.Sprintf("FileDiff payments %+v %s %d", incomingSpec, pathTotal, repo.MaxDiffBytes),
 	})
-	assertViewContains(t, m, "2 [Incoming 12]", "All incoming (12)", "3 Files (5)", "4 Diff · "+pathTotal, totalDiffHead)
+	assertViewContains(t, m, "2 Commits  [Incoming 12]", "All incoming (12)", "3 Files (5)", "4 Diff · "+pathTotal, totalDiffHead)
 
 	m = press(t, m, "2")
 	assertViewContains(t, m,
@@ -307,7 +307,7 @@ func TestDetailBaseTab(t *testing.T) {
 		fmt.Sprintf("Files payments %+v", incomingSpec),
 		fmt.Sprintf("Files payments %+v", spec),
 	})
-	assertViewContains(t, m, "2 Inc  [Base 27]  Loc  Br", "All behind base (12)")
+	assertViewContains(t, m, "2 Commits  Inc  [Base 27]  Loc  Br", "All behind base (12)")
 }
 
 func TestDetailEmptyTabs(t *testing.T) {
@@ -561,5 +561,33 @@ func TestDetailFollowsRefresh(t *testing.T) {
 
 	if calls := fake.Calls("RangeCommits"); len(calls) != 2 {
 		t.Errorf("RangeCommits calls after a refresh of the cursor repo = %v, want a second one", calls)
+	}
+}
+
+// TestCommitsTitleKeepsActiveTab checks that the Commits title shows its
+// active tab whole in every pane from the narrowest bottom column up, the
+// pane name giving way first, and names the pane where there is room.
+func TestCommitsTitleKeepsActiveTab(t *testing.T) {
+	t.Parallel()
+	skipEastAsianWidths(t)
+
+	m, _ := paymentsModel(t, 120, 40)
+
+	for _, keys := range [][]string{nil, {"]"}, {"]", "]"}, {"]", "]", "]"}} {
+		m := pressSettle(t, m, keys...)
+		s, _ := m.detailSnapshot()
+		full := joinTabs(s, m.detail.tab, false)
+		active := full[strings.Index(full, "[") : strings.Index(full, "]")+1]
+
+		for w := minLeftWidth; w <= 60; w++ {
+			title := m.commitsTitle(w)
+			if ansi.StringWidth(title) > w-boxTitleChrome || !strings.Contains(title, active) {
+				t.Errorf("commitsTitle(%d) = %q, want at most %d cells with %s whole", w, title, w-boxTitleChrome, active)
+			}
+		}
+
+		if title := m.commitsTitle(80); !strings.HasPrefix(title, titleCommits) {
+			t.Errorf("commitsTitle(80) = %q, want it to start with %q", title, titleCommits)
+		}
 	}
 }

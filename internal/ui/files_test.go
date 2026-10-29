@@ -292,7 +292,7 @@ func TestFilesPaneUsesRepoBadgeRules(t *testing.T) {
 	m = pressSettle(t, loadAll(t, m, fake), keyDown, "3")
 
 	assertViewHasRow(t, m, "▸ M "+pathTotal, "+1", "-1", "cash")
-	assertViewHasRow(t, m, "│  M composer.lock", "+120", "-80", badgeDeps)
+	assertViewHasRow(t, m, "┃  M composer.lock", "+120", "-80", badgeDeps)
 }
 
 func TestFilesPaneBadgesOnlyOnIncoming(t *testing.T) {
@@ -318,7 +318,7 @@ func TestFilesPaneBadgesOnlyOnIncoming(t *testing.T) {
 			m = pressSettle(t, loadAll(t, m, fake), append([]string{keyDown, "3"}, tt.keys...)...)
 
 			assertViewContains(t, m, tt.wantTitle)
-			assertViewHasRow(t, m, "│  M composer.lock", "+120", "-80")
+			assertViewHasRow(t, m, "┃  M composer.lock", "+120", "-80")
 
 			if got := rowPattern("+120", "-80", badgeDeps).MatchString(viewText(m)); got != tt.badges {
 				t.Errorf("Files pane shows badges = %v, want %v:\n%s", got, tt.badges, viewText(m))

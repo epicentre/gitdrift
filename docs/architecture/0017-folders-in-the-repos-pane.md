@@ -1,7 +1,8 @@
 # 17. Show folders in the Repos pane: column, tabs and a filter
 
 - Status: Accepted. The tab keys are superseded by
-  [18](0018-switch-tabs-with-the-arrow-keys.md).
+  [18](0018-switch-tabs-with-the-arrow-keys.md), the place of the tabs, in
+  the pane title, by [19](0019-repos-pane-on-top.md).
 - Date: 2026-10-28
 
 ## Context

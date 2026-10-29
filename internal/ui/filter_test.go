@@ -252,10 +252,16 @@ func TestFilterWithTabs(t *testing.T) {
 		t.Errorf("All with /%s shows %q, want storefront", filterStorefront, shown)
 	}
 
-	assertViewContains(t, m, "╭─ 1  [All 1/7]  services 0/4  web 1/2 ─")
+	if got, want := tabBarLine(t, m), "  All 1/7   services 0/4  web 1/2"; got != want {
+		t.Errorf("All with /%s: tab bar %q, want %q", filterStorefront, got, want)
+	}
 
 	m = press(t, m, "]")
-	assertViewContains(t, m, "╭─ 1  All 1/7  [services 0/4]  web 1/2 ─", noMatchingRepos)
+	assertViewContains(t, m, noMatchingRepos)
+
+	if got, want := tabBarLine(t, m), " All 1/7   services 0/4   web 1/2"; got != want {
+		t.Errorf("services with /%s: tab bar %q, want %q", filterStorefront, got, want)
+	}
 
 	m = press(t, m, "]")
 	if _, _, shown := reposPane(t, m); m.folderTab != folderWeb || m.filter != filterStorefront ||
@@ -264,7 +270,7 @@ func TestFilterWithTabs(t *testing.T) {
 			filterStorefront, m.folderTab, m.filter, shown)
 	}
 
-	assertViewContains(t, m, "[web 1/2]", "filter: stor")
+	assertViewContains(t, m, " web 1/2 ", "filter: stor")
 }
 
 // TestFilterEscPrecedence checks that esc in the Repos pane clears a kept
@@ -587,16 +593,20 @@ func TestFilterNoMatches(t *testing.T) {
 	t.Parallel()
 	skipEastAsianWidths(t)
 
+	// noneBar is the tab bar with no repository shown, behind the cursor
+	// gutter of the compact rows; the zoom table's gutter is wider.
+	const noneBar = " All 0/7   services 0/4  web 0/2"
+
 	tests := []struct {
-		name  string
-		snaps []drift.Snapshot
-		keys  []string
-		title string
+		name       string
+		snaps      []drift.Snapshot
+		keys       []string
+		title, bar string
 	}{
-		{"nested", fixtureNested(fixedNow), nil, "1  [All 0/7]  services 0/4  web 0/2"},
-		{"nested zoomed", fixtureNested(fixedNow), []string{"z"}, "1  [All 0/7]  services 0/4  web 0/2"},
-		{"flat", fixtureSnapshots(fixedNow), nil, titleRepos},
-		{"flat zoomed", fixtureSnapshots(fixedNow), []string{"z"}, titleReposZoomed},
+		{"nested", fixtureNested(fixedNow), nil, "1 Repos (0)", " " + noneBar},
+		{"nested zoomed", fixtureNested(fixedNow), []string{"z"}, "1 Repos (0) · zoomed", strings.Repeat(" ", tableGutter) + noneBar},
+		{"flat", fixtureSnapshots(fixedNow), nil, "1 Repos (0)", ""},
+		{"flat zoomed", fixtureSnapshots(fixedNow), []string{"z"}, "1 Repos (0) · zoomed", ""},
 	}
 
 	for _, tt := range tests {
@@ -607,6 +617,14 @@ func TestFilterNoMatches(t *testing.T) {
 			m = typeFilter(t, press(t, m, tt.keys...), filterNothing)
 
 			lines := paneInside(t, m, PaneRepos)
+			if tt.bar != "" {
+				if got := strings.TrimRight(lines[0], " "); got != tt.bar {
+					t.Errorf("tab bar = %q, want %q", got, tt.bar)
+				}
+
+				lines = lines[1:]
+			}
+
 			if got := strings.TrimSpace(lines[0]); got != noMatchingRepos {
 				t.Errorf("first line of the Repos pane = %q, want %q:\n%s", got, noMatchingRepos, strings.Join(lines, "\n"))
 			}
@@ -619,14 +637,14 @@ func TestFilterNoMatches(t *testing.T) {
 				t.Errorf("status = %q, want %q", got, "filter: zzz▏")
 			}
 
-			assertViewContains(t, m, "╭─ "+tt.title+" ─")
+			assertViewContains(t, m, "┏━ "+tt.title+" ━")
 		})
 	}
 }
 
 // TestFilterFlatWorkspace checks that the filter works in a workspace
-// without folders, whose title and footer stay as they are, and that the
-// help lists the filter.
+// without folders, whose title counts the rows shown and whose footer stays
+// as it is, and that the help lists the filter.
 func TestFilterFlatWorkspace(t *testing.T) {
 	t.Parallel()
 
@@ -637,7 +655,7 @@ func TestFilterFlatWorkspace(t *testing.T) {
 		t.Errorf("rows for PAY = %q, want payments", got)
 	}
 
-	assertViewContains(t, m, "╭─ "+titleRepos+" ─",
+	assertViewContains(t, m, "┏━ "+titleRepos+" (1) ━",
 		"filter: PAY · payments · base origin/main (auto) · diverged · local changes · 27 behind origin/main\n"+footerRepos)
 	assertViewContains(t, press(t, m, "?"), "/", "filter repositories", "back, leave zoom or clear filter")
 }

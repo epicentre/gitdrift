@@ -21,13 +21,14 @@ const (
 	tooSmallNotice = "terminal too small (need 60×15)"
 
 	// Pane titles; the number is the key that focuses the pane. The tabs
-	// follow titleCommits.
-	titleRepos       = "1 Repos"
-	titleReposZoomed = "1 Repos (zoomed)"
-	titleCommits     = "2 "
-	titleFiles       = "3 Files"
-	titleOnlyHere    = "3 Only here"
-	titleDiff        = "4 Diff"
+	// follow titleCommits, or titleCommitsKey where the name does not fit.
+	titleRepos      = "1 Repos"
+	zoomedMark      = "zoomed"
+	titleCommitsKey = "2 "
+	titleCommits    = titleCommitsKey + "Commits" + tabGap
+	titleFiles      = "3 Files"
+	titleOnlyHere   = "3 Only here"
+	titleDiff       = "4 Diff"
 
 	// compactHeaderRows is the least inner height at which the Repos pane
 	// heads its compact rows with column titles; a collapsed pane gives
@@ -197,25 +198,31 @@ func (m Model) diffAutoZoomed() bool {
 // tableMode reports whether the Repos pane shows the zoom table.
 func (m Model) tableMode() bool { return m.zoom && m.focus == PaneRepos }
 
+// body draws the panes lay places: Repos on top, below it Commits stacked on
+// Files with Diff beside them. Under zoom only one pane is placed.
 func (m Model) body(lay Layout) string {
-	var left []string
+	var rows, left []string
 
-	for _, p := range []Pane{PaneRepos, PaneCommits, PaneFiles} {
+	if r := lay.Repos; r.W > 0 && r.H > 0 {
+		rows = append(rows, m.pane(PaneRepos, r))
+	}
+
+	for _, p := range []Pane{PaneCommits, PaneFiles} {
 		if r := lay.rect(p); r.W > 0 && r.H > 0 {
 			left = append(left, m.pane(p, *r))
 		}
 	}
 
-	if lay.Diff.W <= 0 || lay.Diff.H <= 0 {
-		return lipgloss.JoinVertical(lipgloss.Left, left...)
+	switch hasDiff := lay.Diff.W > 0 && lay.Diff.H > 0; {
+	case hasDiff && len(left) == 0:
+		rows = append(rows, m.pane(PaneDiff, lay.Diff))
+	case hasDiff:
+		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, lipgloss.JoinVertical(lipgloss.Left, left...), m.pane(PaneDiff, lay.Diff)))
+	case len(left) > 0:
+		rows = append(rows, lipgloss.JoinVertical(lipgloss.Left, left...))
 	}
 
-	diff := m.pane(PaneDiff, lay.Diff)
-	if len(left) == 0 {
-		return diff
-	}
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, lipgloss.JoinVertical(lipgloss.Left, left...), diff)
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
 // pane draws pane p in r.
@@ -224,7 +231,7 @@ func (m Model) pane(p Pane, r Rect) string {
 
 	switch p {
 	case PaneRepos:
-		return box(m.reposTitle(r.W), m.reposLines(r), r.W, r.H, focused, m.styles)
+		return box(m.reposTitle(), m.reposLines(r), r.W, r.H, focused, m.styles)
 	case PaneCommits:
 		return box(m.commitsTitle(r.W), m.commitsLines(r), r.W, r.H, focused, m.styles)
 	case PaneFiles:
@@ -238,7 +245,7 @@ func (m Model) pane(p Pane, r Rect) string {
 
 // reposCapacity is the number of row lines the Repos pane has in r.
 func (m Model) reposCapacity(r Rect) int {
-	capacity := innerHeight(r)
+	capacity := innerHeight(r) - m.reposTabBarRows(r)
 	if m.reposHasHeader(r) {
 		capacity-- // column titles
 	}
@@ -246,16 +253,27 @@ func (m Model) reposCapacity(r Rect) int {
 	return max(capacity, 0)
 }
 
-// reposHasHeader reports whether the Repos pane in r starts with column
-// titles: the zoom table always does, the compact rows unless the pane is
-// collapsed.
-func (m Model) reposHasHeader(r Rect) bool {
-	return m.tableMode() || innerHeight(r) >= compactHeaderRows
+// reposTabBarRows is 1 when the Repos pane in r starts with the folder tab
+// bar: in a workspace with folders, when a line is left for the rows.
+func (m Model) reposTabBarRows(r Rect) int {
+	if folderTabs(m.rows) != nil && innerHeight(r) >= 2 {
+		return 1
+	}
+
+	return 0
 }
 
-// reposLines renders the inside of the Repos pane: the visible window of
-// rows around the cursor and "… N more" when rows remain below it, or
-// noMatchingRepos when no row is visible.
+// reposHasHeader reports whether the Repos pane in r has column titles,
+// after the tab bar: the zoom table always does, the compact rows unless the
+// pane is collapsed.
+func (m Model) reposHasHeader(r Rect) bool {
+	return m.tableMode() || innerHeight(r)-m.reposTabBarRows(r) >= compactHeaderRows
+}
+
+// reposLines renders the inside of the Repos pane: the folder tab bar in a
+// workspace with folders, then the visible window of rows around the cursor
+// and "… N more" when rows remain below it, or noMatchingRepos when no row
+// is visible.
 func (m Model) reposLines(r Rect) []string {
 	inner := r.W - 2
 	gutter := compactGutter
@@ -266,21 +284,26 @@ func (m Model) reposLines(r Rect) []string {
 		gutter = tableGutter
 	}
 
-	if len(rows) == 0 {
-		indent := gutter + rowPrefixWidth
-		text := ansi.Truncate(noMatchingRepos, inner-indent, "…")
-
-		return []string{strings.Repeat(" ", indent) + m.styles.Muted.Render(text)}
-	}
-
 	var (
 		lines []string
 		l     columnLayout
 	)
 
+	if m.reposTabBarRows(r) > 0 {
+		bar := folderTabBar(folderTabs(m.rows), m.folderTab, m.folderTabCounts(), inner-gutter, m.styles)
+		lines = append(lines, fit(strings.Repeat(" ", gutter)+bar, inner))
+	}
+
+	if len(rows) == 0 {
+		indent := gutter + rowPrefixWidth
+		text := ansi.Truncate(noMatchingRepos, inner-indent, "…")
+
+		return append(lines, strings.Repeat(" ", indent)+m.styles.Muted.Render(text))
+	}
+
 	if m.tableMode() {
 		l = newTableLayout(rows, m.folderTab, inner-gutter, now)
-		lines = append(lines, strings.Repeat(" ", gutter)+m.styles.Muted.Render(repoTableHeader(l)))
+		lines = append(lines, strings.Repeat(" ", gutter)+m.styles.Heading.Render(repoTableHeader(l)))
 	} else {
 		l = newCompactLayout(rows, m.folderTab, inner-gutter, m.styles)
 		if m.reposHasHeader(r) {

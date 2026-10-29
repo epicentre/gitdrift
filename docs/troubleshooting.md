@@ -51,7 +51,7 @@ a bare clone kept beside them, with `proj/.git` a file that points at
 `proj/.bare` and the worktrees in `proj/main` and `proj/feature`: `proj` has no
 work tree of its own, so the search goes on inside it. A repository the
 search found can also be hidden by the folder tab, the `/` filter or `f`:
-check the tab counts in the Repos title and press `esc` to clear the filter.
+check the tab counts on the first line of the Repos pane and press `esc` to clear the filter.
 
 ## Fetch problems
 

@@ -211,7 +211,7 @@ func TestDiffScroll(t *testing.T) {
 		fmt.Fprintf(&long, "+line %02d\n", i)
 	}
 
-	m, fake := newTestModel(t, fixtureSnapshots(fixedNow), 120, 20)
+	m, fake := newTestModel(t, fixtureSnapshots(fixedNow), 120, 28)
 
 	detail := paymentsDetail(fixedNow)
 	detail.diffs[pathTotal] = long.String()
@@ -244,7 +244,7 @@ func TestDiffScroll(t *testing.T) {
 		}
 	}
 
-	assertViewContains(t, m, "│ +line 12")
+	assertViewContains(t, m, "┃ +line 12")
 
 	m = pressSettle(t, press(t, m, keyEnd), "3", keyDown)
 
@@ -306,7 +306,7 @@ func TestDiffResizeKeepsScrollInBounds(t *testing.T) {
 		fmt.Fprintf(&long, "+line %02d\n", i)
 	}
 
-	m, fake := newTestModel(t, fixtureSnapshots(fixedNow), 120, 16)
+	m, fake := newTestModel(t, fixtureSnapshots(fixedNow), 120, 24)
 
 	detail := paymentsDetail(fixedNow)
 	detail.diffs[pathTotal] = long.String()
@@ -314,7 +314,7 @@ func TestDiffResizeKeepsScrollInBounds(t *testing.T) {
 
 	m = press(t, pressSettle(t, loadAll(t, m, fake), keyDown), "4", keyEnd)
 
-	// 42 lines; 11 inner lines at 120x16, 35 at 120x40.
+	// 42 lines; 11 inner lines at 120x24, 35 at 120x48.
 	if m.detail.diff.scroll != 31 {
 		t.Fatalf("scroll = %d at the end, want 31", m.detail.diff.scroll)
 	}
@@ -324,12 +324,12 @@ func TestDiffResizeKeepsScrollInBounds(t *testing.T) {
 		scroll        int
 		shows         string
 	}{
-		{120, 40, 7, "+line 39"},
-		{120, 16, 7, "+line 05"},
+		{120, 48, 7, "+line 39"},
+		{120, 24, 7, "+line 05"},
 		{59, 15, 7, ""},
 		{80, 24, 7, "+line 05"},
-		{200, 60, 0, "+line 39"},
-		{120, 16, 0, totalDiffHead},
+		{200, 68, 0, "+line 39"},
+		{120, 24, 0, totalDiffHead},
 	}
 
 	for i, s := range steps {

@@ -1,24 +1,24 @@
 gitdrift  ~/code/work                                                6 repos · 3 behind · 2 need attention · 2 only here
-╭─ 1 Repos (zoomed) ───────────────────────────────────────────────────────────────────────────────────────────────────╮
-│     REPO                BRANCH              LOCAL      UPSTREAM      VS BASE    INCOMING      HERE    GONE    UPDATED│
-│   ! billing             feature/vat         clean      up to date    ↓27        –             –       –       1d ago │
-│ ▸ ! payments            feature/checkout    2 files    ↑3 ↓12        ↓27        deps · mig    6       2       5h ago │
-│   ↓ api-gateway         main                clean      ↓12           –          deps          –       –       2d ago │
-│   ↓ notifications       main                clean      ↓4            –          mig · env     –       –       3d ago │
-│   ✓ auth                main                clean      up to date    –          –             1       –       2w ago │
-│   ✓ infra               main                clean      up to date    –          –             –       3       2w ago │
-│                                                                                                                      │
-│                                                                                                                      │
-│                                                                                                                      │
-│                                                                                                                      │
-│                                                                                                                      │
-│                                                                                                                      │
-│                                                                                                                      │
-│                                                                                                                      │
-│                                                                                                                      │
-│                                                                                                                      │
-│                                                                                                                      │
-│                                                                                                                      │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+┏━ 1 Repos (6) · zoomed ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃     REPO                BRANCH              LOCAL      UPSTREAM      VS BASE    INCOMING      HERE    GONE    UPDATED┃
+┃   ! billing             feature/vat         clean      up to date    ↓27        –             –       –       1d ago ┃
+┃ ▸ ! payments            feature/checkout    2 files    ↑3 ↓12        ↓27        deps · mig    6       2       5h ago ┃
+┃   ↓ api-gateway         main                clean      ↓12           –          deps          –       –       2d ago ┃
+┃   ↓ notifications       main                clean      ↓4            –          mig · env     –       –       3d ago ┃
+┃   ✓ auth                main                clean      up to date    –          –             1       –       2w ago ┃
+┃   ✓ infra               main                clean      up to date    –          –             –       3       2w ago ┃
+┃                                                                                                                      ┃
+┃                                                                                                                      ┃
+┃                                                                                                                      ┃
+┃                                                                                                                      ┃
+┃                                                                                                                      ┃
+┃                                                                                                                      ┃
+┃                                                                                                                      ┃
+┃                                                                                                                      ┃
+┃                                                                                                                      ┃
+┃                                                                                                                      ┃
+┃                                                                                                                      ┃
+┃                                                                                                                      ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 payments · base origin/main (auto) · diverged · local changes · 27 behind origin/main
 space select · p pull · P pull all safe · f only-here filter · z unzoom · ? help

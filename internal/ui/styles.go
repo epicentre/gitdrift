@@ -22,6 +22,11 @@ type Styles struct {
 	Cursor lipgloss.Style
 	// Badge colors the "what to do after pull" badges.
 	Badge lipgloss.Style
+	// Heading draws column titles.
+	Heading lipgloss.Style
+	// TabActive draws the active folder tab as a filled box; reverse video
+	// keeps it apart where colors are turned off.
+	TabActive lipgloss.Style
 
 	// Border and Title draw an unfocused pane; BorderFocused and
 	// TitleFocused draw the focused one.
@@ -55,6 +60,8 @@ func newStyles(isDark bool) Styles {
 		Selected:      lipgloss.NewStyle().Foreground(magenta).Bold(true),
 		Cursor:        lipgloss.NewStyle().Foreground(accent).Bold(true),
 		Badge:         lipgloss.NewStyle().Foreground(magenta),
+		Heading:       lipgloss.NewStyle().Foreground(muted).Bold(true),
+		TabActive:     lipgloss.NewStyle().Foreground(accent).Reverse(true).Bold(true),
 		Border:        lipgloss.NewStyle().Foreground(border),
 		BorderFocused: lipgloss.NewStyle().Foreground(accent),
 		Title:         lipgloss.NewStyle().Foreground(muted),

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -14,12 +15,12 @@ import (
 	"github.com/epicentre/gitdrift/internal/workspace"
 )
 
-// Pane titles of the nested fixture's folder tabs, in the All, services and
-// web tabs.
+// Tab bars of the nested fixture, in the All, services and web tabs: the
+// active tab is padded with a space on each side and drawn as a filled box.
 const (
-	titleTabAll      = "1  [All 7]  services 4  web 2"
-	titleTabServices = "1  All 7  [services 4]  web 2"
-	titleTabWeb      = "1  All 7  services 4  [web 2]"
+	tabBarAll      = " All 7   services 4  web 2"
+	tabBarServices = "All 7   services 4   web 2"
+	tabBarWeb      = "All 7  services 4   web 2 "
 )
 
 func TestTopFolder(t *testing.T) {
@@ -67,13 +68,14 @@ func TestFolderTabs(t *testing.T) {
 	}
 }
 
-func TestReposTabTitle(t *testing.T) {
+func TestFolderTabBar(t *testing.T) {
 	t.Parallel()
 	skipEastAsianWidths(t)
 
 	// rawTab is a folder name with escape sequences, which a tab key keeps.
 	const rawTab = "ser\x1b[31mvices\a"
 
+	st := newStyles(true)
 	tabs := []string{folderServices, folderWeb}
 	whole := map[string][2]int{"": {7, 7}, folderServices: {4, 4}, folderWeb: {2, 2}}
 	narrowed := map[string][2]int{"": {3, 7}, folderServices: {1, 4}, folderWeb: {2, 2}}
@@ -86,55 +88,95 @@ func TestReposTabTitle(t *testing.T) {
 		width  int
 		want   string
 	}{
-		{"full width", tabs, "", whole, 80, titleTabAll},
-		{"exactly as wide", tabs, "", whole, 29, titleTabAll},
-		{"a folder tab active", tabs, folderServices, whole, 80, titleTabServices},
-		{"narrow drops the counts of inactive tabs", tabs, "", whole, 28, "1  [All 7]  services  web"},
-		{"narrow keeps the count of the active tab", tabs, folderWeb, whole, 28, "1  All  services  [web 2]"},
-		{"very narrow cuts from the right", tabs, "", whole, 15, "1  [All 7]  se…"},
-		{"very narrow keeps a middle active tab", tabs, folderServices, whole, 22, "1  All  [services 4] …"},
-		{"a cut keeps a space after the active tab", tabs, folderServices, whole, 21, "1  …  [services 4]  …"},
-		{"no cut without room for that space", tabs, "", whole, 11, "1  [All 7]"},
-		{"very narrow hides the tabs before the active one", tabs, folderWeb, whole, 15, "1  …  [web 2]"},
-		{"too narrow for the hidden tabs mark", tabs, folderWeb, whole, 11, "1  [web 2]"},
-		{"too narrow for the active tab", tabs, folderWeb, whole, 8, "1  [web…"},
-		{"f narrows the tabs", tabs, "", narrowed, 80, "1  [All 3/7]  services 1/4  web 2"},
-		{"narrow drops the narrowed counts", tabs, "", narrowed, 32, "1  [All 3/7]  services  web"},
+		{"full width", tabs, "", whole, 80, tabBarAll},
+		{"exactly as wide", tabs, "", whole, 26, tabBarAll},
+		{"a folder tab active", tabs, folderServices, whole, 80, tabBarServices},
+		{"narrow drops the counts of inactive tabs", tabs, "", whole, 25, " All 7   services  web"},
+		{"narrow keeps the count of the active tab", tabs, folderWeb, whole, 25, "All  services   web 2 "},
+		{"very narrow cuts from the right", tabs, "", whole, 12, " All 7   se…"},
+		{"very narrow keeps a middle active tab", tabs, folderServices, whole, 19, "All   services 4  …"},
+		{"a cut keeps a space after the active tab", tabs, folderServices, whole, 18, "…   services 4   …"},
+		{"no cut without room for that space", tabs, "", whole, 8, " All 7 "},
+		{"very narrow hides the tabs before the active one", tabs, folderWeb, whole, 12, "…   web 2 "},
+		{"too narrow for the hidden tabs mark", tabs, folderWeb, whole, 8, " web 2 "},
+		{"too narrow for the active tab", tabs, folderWeb, whole, 5, " web…"},
+		{"f narrows the tabs", tabs, "", narrowed, 80, " All 3/7   services 1/4  web 2"},
+		{"narrow drops the narrowed counts", tabs, "", narrowed, 29, " All 3/7   services  web"},
 		{"tab names are sanitized for display only", []string{rawTab}, rawTab, map[string][2]int{
 			"": {2, 2}, rawTab: {1, 1},
-		}, 80, "1  All 2  [services 1]"},
+		}, 80, "All 2   services 1 "},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := reposTabTitle(tt.tabs, tt.active, tt.counts, tt.width)
+			got := ansi.Strip(folderTabBar(tt.tabs, tt.active, tt.counts, tt.width, st))
 			if got != tt.want {
-				t.Errorf("reposTabTitle(%q, %d) = %q, want %q", tt.active, tt.width, got, tt.want)
+				t.Errorf("folderTabBar(%q, %d) = %q, want %q", tt.active, tt.width, got, tt.want)
 			}
 
 			if w := ansi.StringWidth(got); w > tt.width {
-				t.Errorf("reposTabTitle(%q, %d) is %d cells wide", tt.active, tt.width, w)
+				t.Errorf("folderTabBar(%q, %d) is %d cells wide", tt.active, tt.width, w)
 			}
 		})
 	}
 
-	// At every width the title fits, and the active tab shows whole as
-	// soon as the pane key and the tab alone fit.
-	active := map[string]string{"": "[All 7]", folderServices: "[services 4]", folderWeb: "[web 2]"}
+	// At every width the bar fits, and the active tab shows whole, as a
+	// filled box, as soon as it fits alone.
+	active := map[string]string{"": " All 7 ", folderServices: " services 4 ", folderWeb: " web 2 "}
 	for tab, label := range active {
 		for width := range 40 {
-			got := reposTabTitle(tabs, tab, whole, width)
+			got := folderTabBar(tabs, tab, whole, width, st)
 			if w := ansi.StringWidth(got); w > width {
-				t.Errorf("reposTabTitle(%q, %d) = %q is %d cells wide", tab, width, got, w)
+				t.Errorf("folderTabBar(%q, %d) = %q is %d cells wide", tab, width, got, w)
 			}
 
-			if width >= ansi.StringWidth("1  "+label) && !strings.Contains(got, label) {
-				t.Errorf("reposTabTitle(%q, %d) = %q hides the active tab %s", tab, width, got, label)
+			if width >= ansi.StringWidth(label) && !strings.Contains(got, st.TabActive.Render(label)) {
+				t.Errorf("folderTabBar(%q, %d) = %q does not draw the active tab %q as a filled box", tab, width, got, label)
 			}
 		}
 	}
+}
+
+// TestReposTitle checks that the Repos pane is named, with the number of
+// repositories it shows, in a flat workspace and with folders, in a folder
+// tab, filtered and zoomed.
+func TestReposTitle(t *testing.T) {
+	t.Parallel()
+
+	flat, _ := loadedModel(t, fixtureSnapshots(fixedNow), 150, 40)
+	nested, _ := loadedModel(t, fixtureNested(fixedNow), 150, 40)
+
+	tests := []struct {
+		name string
+		m    Model
+		want string
+	}{
+		{"flat", flat, "1 Repos (" + strconv.Itoa(len(fixtureSnapshots(fixedNow))) + ")"},
+		{"nested", nested, "1 Repos (7)"},
+		{"a folder tab", press(t, nested, keyRight), "1 Repos (4)"},
+		{"a kept filter", press(t, typeFilter(t, nested, folderWeb), keyEnter), "1 Repos (2)"},
+		{"zoomed", press(t, nested, "z"), "1 Repos (7) · zoomed"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.m.reposTitle(); got != tt.want {
+				t.Errorf("reposTitle() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// tabBarLine returns the first line inside the Repos pane, where a workspace
+// with folders shows its tab bar, without trailing spaces.
+func tabBarLine(t *testing.T, m Model) string {
+	t.Helper()
+
+	return strings.TrimRight(paneInside(t, m, PaneRepos)[0], " ")
 }
 
 // reposPane returns the column titles and the rows of the Repos pane, and
@@ -143,6 +185,9 @@ func reposPane(t *testing.T, m Model) (header string, lines, shown []string) {
 	t.Helper()
 
 	inside := paneInside(t, m, PaneRepos)
+	if folderTabs(m.rows) != nil {
+		inside = inside[1:] // the tab bar
+	}
 
 	return inside[0], inside[1:], relativePaths(m.rowsAt(m.visible()))
 }
@@ -166,17 +211,17 @@ func TestFolderTabKeys(t *testing.T) {
 	web := []string{"web/storefront", "web/admin"}
 
 	steps := []struct {
-		key, tab, title string
-		shown           []string
-		cursor          string
+		key, tab, bar string
+		shown         []string
+		cursor        string
 	}{
-		{keyRight, folderServices, titleTabServices, services, namePayments},
-		{"l", folderWeb, titleTabWeb, web, nameStorefront},
-		{"]", "", titleTabAll, all, nameStorefront},
-		{keyLeft, folderWeb, titleTabWeb, web, nameStorefront},
-		{"h", folderServices, titleTabServices, services, "billing"},
-		{"[", "", titleTabAll, all, "billing"},
-		{keyLeft, folderWeb, titleTabWeb, web, nameStorefront},
+		{keyRight, folderServices, tabBarServices, services, namePayments},
+		{"l", folderWeb, tabBarWeb, web, nameStorefront},
+		{"]", "", tabBarAll, all, nameStorefront},
+		{keyLeft, folderWeb, tabBarWeb, web, nameStorefront},
+		{"h", folderServices, tabBarServices, services, "billing"},
+		{"[", "", tabBarAll, all, "billing"},
+		{keyLeft, folderWeb, tabBarWeb, web, nameStorefront},
 	}
 
 	for i, s := range steps {
@@ -191,7 +236,11 @@ func TestFolderTabKeys(t *testing.T) {
 			t.Errorf("step %d %q: rows mismatch (-want +got):\n%s", i, s.key, diff)
 		}
 
-		assertViewContains(t, m, "╭─ "+s.title+" ─", "7 repos · ")
+		assertViewContains(t, m, "┏━ 1 Repos ("+strconv.Itoa(len(s.shown))+") ━", "7 repos · ")
+
+		if got, want := tabBarLine(t, m), strings.TrimRight(" "+s.bar, " "); got != want {
+			t.Errorf("step %d %q: tab bar %q, want %q", i, s.key, got, want)
+		}
 	}
 
 	if calls := fake.Calls("RangeCommits " + nameStorefront + " "); len(calls) == 0 {
@@ -209,8 +258,8 @@ func TestFolderTabKeys(t *testing.T) {
 }
 
 // TestFolderTabKeysInZoom checks that ] and [ switch the folder tabs of the
-// zoomed Repos pane, whose title then shows the tabs, and that the zoom
-// table's FOLDER is relative to the tab.
+// zoomed Repos pane, which then shows the tab bar, and that the zoom table's
+// FOLDER is relative to the tab.
 func TestFolderTabKeysInZoom(t *testing.T) {
 	t.Parallel()
 	skipEastAsianWidths(t)
@@ -222,7 +271,12 @@ func TestFolderTabKeysInZoom(t *testing.T) {
 		t.Fatalf("tab %q, table mode %t; want services, zoomed", m.folderTab, m.tableMode())
 	}
 
-	assertViewContains(t, m, "╭─ "+titleTabServices+" ─")
+	assertViewContains(t, m, "┏━ 1 Repos (4) · zoomed ━")
+
+	// The zoom table's wider gutter indents the bar, as it does the rows.
+	if got, want := tabBarLine(t, m), strings.Repeat(" ", tableGutter)+tabBarServices; got != want {
+		t.Errorf("zoomed tab bar %q, want %q", got, want)
+	}
 
 	header, lines, _ := reposPane(t, m)
 	if got := cellUnder(t, header, rowOf(t, lines, nameNotifications), titleFolder); got != platformInServices {
@@ -244,7 +298,11 @@ func TestFolderTabCountsWithOnlyHere(t *testing.T) {
 	m, _ := loadedModel(t, fixtureNested(fixedNow), 150, 40)
 	m = pressSettle(t, m, "f")
 
-	assertViewContains(t, m, "╭─ 1  [All 2/7]  services 2/4  web 0/2 ─", "7 repos · ")
+	assertViewContains(t, m, "7 repos · ")
+
+	if got, want := tabBarLine(t, m), "  All 2/7   services 2/4  web 0/2"; got != want {
+		t.Errorf("tab bar with f: %q, want %q", got, want)
+	}
 
 	m = pressSettle(t, m, "]")
 	if _, _, shown := reposPane(t, m); !cmp.Equal(shown, []string{"services/payments", "services/platform/search"}) {
@@ -272,7 +330,9 @@ func TestFolderTabLeavesOutSiblingPrefix(t *testing.T) {
 	}
 
 	m = pressSettle(t, m, "]", "]")
-	assertViewContains(t, m, "╭─ 1  All 9  services 4  [web 2]  web-legacy 2 ─")
+	if got, want := tabBarLine(t, m), " All 9  services 4   web 2   web-legacy 2"; got != want {
+		t.Errorf("tab bar in web: %q, want %q", got, want)
+	}
 
 	if _, _, shown := reposPane(t, m); !cmp.Equal(shown, []string{"web/storefront", "web/admin"}) {
 		t.Errorf("web tab shows %q, want storefront and admin only", shown)
@@ -425,7 +485,7 @@ func TestBracketsSwitchCommitTabsInCommits(t *testing.T) {
 }
 
 // TestFlatWorkspaceHasNoTabs checks that a workspace without folders has no
-// folder tabs: the Repos pane keeps its title and ] and [ switch the Commits
+// folder tabs: the Repos pane has no tab bar and ] and [ switch the Commits
 // tabs from the Repos pane as before. view_main.golden pins the screen.
 func TestFlatWorkspaceHasNoTabs(t *testing.T) {
 	t.Parallel()
@@ -436,8 +496,13 @@ func TestFlatWorkspaceHasNoTabs(t *testing.T) {
 		t.Errorf("folderTabs() = %q, want none", tabs)
 	}
 
-	assertViewContains(t, m, "╭─ "+titleRepos+" ─")
-	assertViewContains(t, press(t, m, "z"), "╭─ "+titleReposZoomed+" ─")
+	title := titleRepos + " (" + strconv.Itoa(len(fixtureSnapshots(fixedNow))) + ")"
+	assertViewContains(t, m, "┏━ "+title+" ━")
+	assertViewContains(t, press(t, m, "z"), "┏━ "+title+" · zoomed ━")
+
+	if header, _, _ := reposPane(t, m); !strings.Contains(header, titleRepo) {
+		t.Errorf("first line of the Repos pane = %q, want the column titles", header)
+	}
 
 	m = press(t, m, "]")
 	if m.focus != PaneRepos || m.detail.tab != TabBase || m.folderTab != "" {
@@ -503,13 +568,19 @@ func TestDiscoveredFoldersInReposPane(t *testing.T) {
 		m = step(t, m, groupRefreshedMsg{commonDir: g.CommonDir, snaps: ws.Refresh(t.Context(), g.CommonDir, false)})
 	}
 
-	assertViewContains(t, m, "╭─ 1  [All 4]  services 2  web 1 ─")
+	if got, want := tabBarLine(t, m), "  All 4   services 2  web 1"; got != want {
+		t.Errorf("tab bar: %q, want %q", got, want)
+	}
+
 	assertViewHasRow(t, m, "api", folderServices, branchMain)
 	assertViewHasRow(t, m, "billing", folderPlatform, branchMain)
 	assertViewHasRow(t, m, "api", folderWeb, branchMain)
 	assertViewHasRow(t, m, "handbook", branchMain)
 
 	m = press(t, m, "]")
-	assertViewContains(t, m, "╭─ 1  All 4  [services 2]  web 1 ─")
+	if got, want := tabBarLine(t, m), " All 4   services 2   web 1"; got != want {
+		t.Errorf("tab bar in services: %q, want %q", got, want)
+	}
+
 	assertViewHasRow(t, m, "billing", platformInServices, branchMain)
 }

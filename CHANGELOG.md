@@ -36,4 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fetch refuses remotes without a url or with a refspec that writes outside
   `refs/remotes/`, and never prunes tags.
 - Repos pane with aligned, full-width columns and a header row naming them.
+- The Repos pane spans the top of the screen, with Commits, Files and Diff
+  below it, so that every column and whole folder names fit; the focused
+  pane has a thick border, every pane title names its pane, and the folder
+  tabs sit on their own line with the active one as a filled box.
 - Architecture overview and decision records in `docs/architecture/`.

@@ -1,43 +1,35 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
+	"github.com/google/go-cmp/cmp"
 )
 
-func TestFit(t *testing.T) {
+// TestBoxBorders checks that an unfocused pane has a thin rounded border and
+// the focused one a thick border, so that the focus stands out.
+func TestBoxBorders(t *testing.T) {
 	t.Parallel()
 	skipEastAsianWidths(t)
 
-	st := newStyles(true)
-
 	tests := []struct {
-		name  string
-		s     string
-		width int
-		want  string
+		name    string
+		focused bool
+		want    []string
 	}{
-		{"shorter is padded", "ok", 5, "ok   "},
-		{"exact stays", "fits!", 5, "fits!"},
-		{"longer is cut", "too long", 5, "too l"},
-		{"a wide character cut at the edge leaves a padded cell", "ab漢字", 5, "ab漢 "},
-		{"a wide character that does not fit at all", "漢", 1, " "},
-		{"styling is kept", st.Badge.Render("deps") + "x", 4, "deps"},
-		{"no room", "ok", 0, ""},
+		{"unfocused", false, []string{"╭─ 2 Commits ──╮", "│ a            │", "╰──────────────╯"}},
+		{"focused", true, []string{"┏━ 2 Commits ━━┓", "┃ a            ┃", "┗━━━━━━━━━━━━━━┛"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := fit(tt.s, tt.width)
-			if s := ansi.Strip(got); s != tt.want {
-				t.Errorf("fit(%q, %d) = %q, want %q", tt.s, tt.width, s, tt.want)
-			}
-
-			if w := ansi.StringWidth(got); w != max(tt.width, 0) {
-				t.Errorf("fit(%q, %d) width = %d, want %d", tt.s, tt.width, w, tt.width)
+			got := strings.Split(ansi.Strip(box("2 Commits", []string{" a"}, 16, 3, tt.focused, newStyles(true))), "\n")
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("box mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
