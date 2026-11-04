@@ -15,18 +15,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # govulncheck runs from tools/go.mod with the toolchain pinned in go.mod, the
+  # same way as `make vuln`, so the scanned standard library is the one that
+  # release builds use.
   govulncheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            tools/go.sum
+      - run: make vuln
   codeql:
     runs-on: ubuntu-latest
     permissions:
+      # In a private repository the CodeQL action reads this workflow run to
+      # build the analysis key; without it the SARIF upload fails.
+      actions: read
       contents: read
       security-events: write
     steps:

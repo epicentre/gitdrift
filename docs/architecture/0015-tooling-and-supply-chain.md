@@ -1,6 +1,7 @@
 # 15. Pin tools in a module and actions by commit SHA
 
-- Status: Accepted
+- Status: Accepted. The CodeQL permissions are superseded by
+  [20](0020-security-scans-use-the-pinned-toolchain.md).
 - Date: 2026-10-28
 
 ## Context

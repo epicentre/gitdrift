@@ -177,7 +177,7 @@ one, and the old one's status says so.
 | [12](0012-sanitize-repository-text.md) | Treat repository text as untrusted | Accepted |
 | [13](0013-confirm-only-what-is-on-screen.md) | Confirm only what is on screen | Accepted |
 | [14](0014-test-against-real-git.md) | Test against real git with isolated config | Accepted |
-| [15](0015-tooling-and-supply-chain.md) | Pin tools in a module and actions by commit SHA | Accepted |
+| [15](0015-tooling-and-supply-chain.md) | Pin tools in a module and actions by commit SHA | Accepted (CodeQL permissions superseded by 20) |
 | [16](0016-discover-repositories-recursively.md) | Discover repositories recursively, bounded by a depth | Accepted |
 | [17](0017-folders-in-the-repos-pane.md) | Show folders in the Repos pane: column, tabs and a filter | Accepted (tab keys superseded by 18, tab placement by 19) |
 | [18](0018-switch-tabs-with-the-arrow-keys.md) | Switch tabs with the arrow keys | Accepted |
