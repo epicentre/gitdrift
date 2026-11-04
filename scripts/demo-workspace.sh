@@ -172,11 +172,14 @@ func main() {}"
 	git -C "$dir" remote set-head origin main >/dev/null
 }
 
-# pusher <name>: clone the remote into a scratch directory so other people's
-# work can be pushed; prints the clone path.
+# pusher <name> <author>: clone the remote into a scratch directory so other
+# people's work can be pushed, committing as the teammate <author>; prints the
+# clone path. Work made on this machine stays with the fixed author.
 pusher() {
-	local p=$scratch/pusher-$1
+	local p=$scratch/pusher-$1 first=${2%% *}
 	git clone -q "$remotes/$1.git" "$p" 2>/dev/null
+	git -C "$p" config user.name "$2"
+	git -C "$p" config user.email "$(printf '%s' "$first" | tr '[:upper:]' '[:lower:]')@example.com"
 	echo "$p"
 }
 
@@ -229,7 +232,7 @@ git -C "$p" push -q -u origin feature/checkout
 
 # Upstream work on the feature branch, oldest first: one test per commit
 # appended to the refund tests, then the refund fixes and the dependency bump.
-pp=$(pusher payments)
+pp=$(pusher payments "Dana Lee")
 git -C "$pp" switch -q feature/checkout
 for i in 1 2 3 4 5 6 7 8; do
 	f=$pp/cmd/payments/refund_test.go
@@ -324,7 +327,7 @@ save "$p" "4 days ago" "feat: add CSV columns" internal/invoice/csv.go \
 // Columns are the CSV columns of an invoice export.
 var Columns = []string{\"id\", \"customer\", \"total\"}"
 git -C "$p" push -q -u origin feature/invoice-export
-pp=$(pusher billing)
+pp=$(pusher billing "Sam Park")
 bulk "$pp" 27 "update invoice templates" "2 days ago"
 git -C "$pp" push -q origin main
 git -C "$p" fetch -q --prune origin
@@ -333,7 +336,7 @@ git -C "$p" fetch -q --prune origin
 # On main, behind 12, with an incoming dependency bump.
 p=$(repo_dir api-gateway)
 new_repo api-gateway "40 days ago"
-pp=$(pusher api-gateway)
+pp=$(pusher api-gateway "Alex Morgan")
 for r in users orders invoices payments search health ready metrics auth sessions webhooks; do
 	cap="$(printf %s "${r:0:1}" | tr a-z A-Z)${r:1}"
 	save "$pp" "2 days ago" "feat: add $r route" "internal/routes/$r.go" \
@@ -350,7 +353,7 @@ git -C "$p" fetch -q --prune origin
 # On main, behind 4, with an incoming migration and an env example.
 p=$(repo_dir notifications)
 new_repo notifications "35 days ago"
-pp=$(pusher notifications)
+pp=$(pusher notifications "Robin Hale")
 digest_go() {
 	printf 'package mail\n\n// DigestSubject is the subject line of the daily digest.\nfunc DigestSubject() string {\n\treturn "%s"\n}\n' "$1"
 }
