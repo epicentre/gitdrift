@@ -90,6 +90,29 @@ func TestRangeCommitsIncoming(t *testing.T) {
 	}
 }
 
+// TestRangeCommitsAuthorFromMailmap shows the author as the repository's
+// .mailmap names them, so that one person committing with several names
+// reads as one.
+func TestRangeCommitsAuthorFromMailmap(t *testing.T) {
+	t.Parallel()
+
+	env := gittest.New(t)
+	app, _ := incomingWithMerge(t, env)
+	app.Write(".mailmap", "Jane Doe <test@example.com>\n")
+	loc := locate(t, env, app)
+
+	commits, _, err := repo.RangeCommits(t.Context(), env.Runner(), loc, "HEAD", originMain, repo.MaxCommits)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, c := range commits {
+		if c.Author != "Jane Doe" {
+			t.Errorf("author of %q = %q, want the .mailmap name %q", c.Subject, c.Author, "Jane Doe")
+		}
+	}
+}
+
 func TestRangeCommitsLimit(t *testing.T) {
 	t.Parallel()
 

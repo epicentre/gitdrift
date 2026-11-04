@@ -110,6 +110,14 @@ func TestCommitRow(t *testing.T) {
 	noShort := repo.Commit{SHA: shaInvoices, Subject: "x", When: fixedNow.Add(-13 * month)}
 	recent := repo.Commit{SHA: shaRefunds, Short: "f00dfee", Subject: "feat: refunds", When: fixedNow.Add(-2 * day)}
 	older := repo.Commit{SHA: shaInvoices, Short: "0badc0d", Subject: "fix: totals", When: fixedNow.Add(-45 * day)}
+	authored := recent
+	authored.Author = "Jane Doe"
+	longAuthor := recent
+	longAuthor.Author = "Mehmet Yilmaz-Kaya"
+	longSubject := authored
+	longSubject.Subject = "feat: add refund endpoint"
+	hostileAuthor := recent
+	hostileAuthor.Subject, hostileAuthor.Author = "x", "Ev\x1b[2Je\u202E"
 
 	tests := []struct {
 		name   string
@@ -119,20 +127,32 @@ func TestCommitRow(t *testing.T) {
 		want   string
 	}{
 		// The subject column takes the width left by the indent, the sha,
-		// the gaps and the age column, as wide as the list's longest age.
-		{"merge", commits, commits[0], 50, " a1b2c3d " + pad("Merge branch 'feature/refunds'", 37) + "  2d"},
-		{"plain", commits, commits[1], 40, " f00dfee " + pad("feat: add refund endpoint", 27) + "  3d"},
+		// the gaps, the author column and the age column, as wide as the
+		// list's longest author and age.
+		{"merge", commits, commits[0], 50, " a1b2c3d " + pad("Merge branch 'feature/refunds'", 31) + "  Dana  2d"},
+		// The subject gives way down to its minimum while the short author
+		// stays whole.
+		{"plain", commits, commits[1], 40, " f00dfee feat: add refund end…  Dana  3d"},
+		// Too narrow for both minimums: the author column is left out.
 		{"cut subject", commits, commits[1], 30, " f00dfee feat: add refund…  3d"},
 		{"sanitized", []repo.Commit{hostile}, hostile, 30, " f00dfee " + pad("fix: oops", 16) + "  now"},
 		{"no short sha", []repo.Commit{noShort}, noShort, 20, " 0badc0d " + pad("x", 7) + "  1y"},
 		{"ages right-aligned", []repo.Commit{recent, older}, recent, 40, " f00dfee " + pad("feat: refunds", 26) + "  " + padLeft("2d", 3)},
+		{"author", []repo.Commit{authored}, authored, 40, " f00dfee " + pad("feat: refunds", 17) + "  Jane Doe  2d"},
+		// A long author is cut first, down to its minimum, before the
+		// subject gives way.
+		{"long author cut first", []repo.Commit{longAuthor}, longAuthor, 40, " f00dfee feat: refunds  Mehmet Yilm…  2d"},
+		{"author left out when narrow", []repo.Commit{longSubject}, longSubject, 34, " f00dfee feat: add refund end…  2d"},
+		{"sanitized author", []repo.Commit{hostileAuthor}, hostileAuthor, 30, " f00dfee " + pad("x", 12) + "  Eve  2d"},
 	}
+
+	st := newStyles(true)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := commitRow(tt.commit, newCommitLayout(tt.list, tt.width, fixedNow), fixedNow, newStyles(true))
+			got := commitRow(tt.commit, newCommitLayout(tt.list, tt.width, fixedNow, st), fixedNow, st)
 			if s := ansi.Strip(got); s != tt.want {
 				t.Errorf("commitRow() = %q, want %q", s, tt.want)
 			}
@@ -141,5 +161,19 @@ func TestCommitRow(t *testing.T) {
 				t.Errorf("commitRow() width = %d, want %d", w, tt.width)
 			}
 		})
+	}
+}
+
+// TestCommitRowAuthorMuted draws the author in the muted style, so that the
+// subject reads first.
+func TestCommitRowAuthorMuted(t *testing.T) {
+	t.Parallel()
+
+	st := newStyles(true)
+	c := repo.Commit{SHA: shaRefunds, Subject: "feat: refunds", Author: "Jane Doe", When: fixedNow.Add(-2 * day)}
+
+	got := commitRow(c, newCommitLayout([]repo.Commit{c}, 40, fixedNow, st), fixedNow, st)
+	if !strings.Contains(got, st.Muted.Render("Jane Doe")) {
+		t.Errorf("commitRow() = %q, want the author in the muted style", got)
 	}
 }

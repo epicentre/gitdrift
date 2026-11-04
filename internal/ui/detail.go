@@ -311,7 +311,7 @@ func (m *Model) selectFile() {
 
 	if d.tab == TabBranches {
 		if c, ok := m.onlyHereCommit(); ok {
-			d.diff = diffState{loading: true, title: commitShort(c), header: commitHeader(c)}
+			d.diff = diffState{loading: true, title: commitShort(c), header: commitHeader(c, m.now())}
 		}
 
 		return

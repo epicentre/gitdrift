@@ -33,7 +33,7 @@ There is no telemetry.
 | Your git config (system, global, repository), credential helpers, `ssh` configuration | trusted, never overridden | They are your choices; gitdrift must behave like your git. |
 | Hooks and other programs your config runs (`core.fsmonitor`, filters, `post-merge`) | trusted | git runs them, as it would in your shell. |
 | Your environment | trusted, except variables that select another repository (`GIT_DIR` and similar), which are removed | Leftover variables would point every command at the wrong repository. |
-| Repository content: branch names, commit subjects, file paths, file contents, stash messages | untrusted | Other people write it ([decision 12](architecture/0012-sanitize-repository-text.md)). |
+| Repository content: branch names, commit subjects and authors (including `.mailmap`), file paths, file contents, stash messages | untrusted | Other people write it ([decision 12](architecture/0012-sanitize-repository-text.md)). |
 | Remote responses and error output | untrusted | The remote's operator writes them. |
 
 **Run gitdrift only on folders whose repositories you would run `git status`

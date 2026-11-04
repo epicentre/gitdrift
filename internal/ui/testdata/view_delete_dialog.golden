@@ -7,8 +7,8 @@ gitdrift  ~/code/work                            6 repos · 3 behind · 2 need a
 │ ↓ notifications     main                          ↓4                     mig env                 │
 │   … 2 more    ┏━ Delete 2 gone branches in payments? ━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓               │
 ╰───────────────┃ feature/cash-rounding (e4f5a6b), 2 commits only on this machine: ┃───────────────╯
-┏━ 2 Inc  Base  ┃   e4f5a6b fix: cash rounding                                  3w ┃───────────────╮
-┃ GONE · deleted┃   5a6b7c8 wip: cash test                                      3w ┃               │
+┏━ 2 Inc  Base  ┃   e4f5a6b fix: cash rounding                             Sam  3w ┃───────────────╮
+┃ GONE · deleted┃   5a6b7c8 wip: cash test                                 Sam  3w ┃               │
 ┃ [x] feature/ca┃                                                                  ┃               │
 ┃▸[x] feature/qr┃ feature/qr-login (b7c8d9e), 0 commits only on this machine       ┃               │
 ┃ ONLY ON THIS M┃                                                                  ┃               │

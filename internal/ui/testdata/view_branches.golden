@@ -9,16 +9,16 @@ gitdrift  ~/code/work                            6 repos · 3 behind · 2 need a
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ┏━ 2 Inc  Base  Loc  [Branches ✂2 ⌂6] ━━━━━┓╭─ 4 Diff · e4f5a6b ───────────────────────────────────╮
 ┃▸[ ] feature/cash-roun…  2 only here    3w┃│ commit e4f5a6b fix: cash rounding                    │
-┃ [ ] feature/qr-login    0 only here   1mo┃│ diff --git a/app/Cash/Total.php b/app/Cash/Total.php │
-┃ ONLY ON THIS MACHINE                     ┃│ index 3f2a1b0..8c9d4e2 100644                        │
-┃     feature/checkout    3 not pushed     ┃│ --- a/app/Cash/Total.php                             │
-┃     stash@{0}           WIP on main    5d┃│ +++ b/app/Cash/Total.php                             │
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛│ @@ -12,4 +12,4 @@                                    │
-╭─ 3 Only here · feature/cash-rounding ────╮│     public function total(): float                   │
-│▸ e4f5a6b fix: cash rounding            3w││     {                                                │
-│  5a6b7c8 wip: cash test                3w││ -       return round($this->sum, 1);                 │
-│                                          ││ +       return round($this->sum, 2);                 │
-│                                          ││     }                                                │
+┃ [ ] feature/qr-login    0 only here   1mo┃│ author Sam · 3w ago                                  │
+┃ ONLY ON THIS MACHINE                     ┃│ diff --git a/cmd/payments/total.go b/cmd/payments/to…│
+┃     feature/checkout    3 not pushed     ┃│ index 3f2a1b0..8c9d4e2 100644                        │
+┃     stash@{0}           WIP on main    5d┃│ --- a/cmd/payments/total.go                          │
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛│ +++ b/cmd/payments/total.go                          │
+╭─ 3 Only here · feature/cash-rounding ────╮│ @@ -12,4 +12,4 @@                                    │
+│▸ e4f5a6b fix: cash rounding       Sam  3w││  func (c Cash) Total() float64 {                     │
+│  5a6b7c8 wip: cash test           Sam  3w││     sum := c.Sum()                                   │
+│                                          ││ -   return round(sum, 1)                             │
+│                                          ││ +   return round(sum, 2)                             │
 ╰──────────────────────────────────────────╯╰──────────────────────────────────────────────────────╯
 feature/cash-rounding · deleted on remote · 2 commits not on any remote
 space select · d delete gone · ←→ tabs · z zoom · esc back · ? help

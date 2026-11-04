@@ -416,7 +416,7 @@ func (d deleteConfirm) view(env dialogEnv, width, _ int) dialogView {
 
 	v := dialogView{title: title, body: body, footer: footerDeleteDialog}
 
-	cols := commitColumnsOf(commits, env.now)
+	cols := commitColumnsOf(commits, env.now, env.st)
 	inner := min(max(v.innerWidth(), len(commitIndent)+columnsWidth(cols)), width)
 	l := layoutColumns(cols, inner-len(commitIndent))
 

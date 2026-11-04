@@ -226,7 +226,7 @@ func TestRefreshBadges(t *testing.T) {
 
 	env := gittest.New(t)
 	_, mate := pushedClone(t, env, "payments")
-	mate.Commit("composer.lock", "{}", "bump deps")
+	mate.Commit("go.sum", "", "bump deps")
 	mate.Git("push", "--quiet", "origin", "main")
 
 	w := newWorkspace(t, env)

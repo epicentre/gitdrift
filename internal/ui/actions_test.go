@@ -285,6 +285,74 @@ func TestPullInFlight(t *testing.T) {
 	}
 }
 
+// TestPullLandedKeepsCursorRow pulls api-gateway, third of billing,
+// payments, api-gateway, notifications, auth and infra, and delivers the
+// refresh after the pull.
+func TestPullLandedKeepsCursorRow(t *testing.T) {
+	t.Parallel()
+
+	upToDate := behindMain(nameAPIGateway, 0, nil, fixedNow)
+	detached := upToDate
+	detached.Status.Detached = true
+
+	tests := []struct {
+		name    string
+		outcome ops.PullOutcome
+		// during is the repository the cursor moves to while the pull runs,
+		// "" for none.
+		during string
+		after  drift.Snapshot
+		want   string
+	}{
+		{
+			name:    "up to date after the pull: the next repository takes the row",
+			outcome: ops.PullOutcome{Pulled: 12},
+			after:   upToDate,
+			want:    nameNotifications,
+		},
+		{
+			name:    "failed pull: the cursor follows the repository",
+			outcome: ops.PullOutcome{Err: errors.New("boom")},
+			after:   upToDate,
+			want:    nameAPIGateway,
+		},
+		{
+			name:    "needs attention after the pull: the cursor follows the repository",
+			outcome: ops.PullOutcome{Pulled: 12},
+			after:   detached,
+			want:    nameAPIGateway,
+		},
+		{
+			name:    "cursor moved during the pull: it stays where it was moved",
+			outcome: ops.PullOutcome{Pulled: 12},
+			during:  nameAuth,
+			after:   upToDate,
+			want:    nameAuth,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			m, fake := loadedModel(t, fixtureSnapshots(fixedNow), 120, 40)
+			fake.setPullOutcome(nameAPIGateway, tt.outcome)
+
+			m, cmd := pressCmd(t, press(t, moveTo(t, m, nameAPIGateway), "p"), "y")
+			if tt.during != "" {
+				m = moveTo(t, m, tt.during)
+			}
+
+			m = feed(t, m, runCmd(cmd))
+			m = step(t, m, groupRefreshedMsg{commonDir: tt.after.Loc.CommonDir, snaps: []drift.Snapshot{tt.after}})
+
+			if got := cursorName(m); got != tt.want {
+				t.Errorf("cursor = %q, want %q (rows %v)", got, tt.want, rowNames(m))
+			}
+		})
+	}
+}
+
 func TestPullAllSafe(t *testing.T) {
 	t.Parallel()
 
@@ -337,7 +405,7 @@ func TestPullResultCopy(t *testing.T) {
 		},
 		{
 			"failed",
-			ops.PullOutcome{Err: errors.New("error: Your local changes would be overwritten\n\tapp/Cash/Total.php")},
+			ops.PullOutcome{Err: errors.New("error: Your local changes would be overwritten\n\tcmd/payments/total.go")},
 			nil,
 			result{text: "pull failed: error: Your local changes would be overwritten", err: true},
 		},
@@ -351,11 +419,11 @@ func TestPullResultCopy(t *testing.T) {
 		{
 			"git's error line with the files it lists",
 			ops.PullOutcome{Err: mergeError("hint: x\nerror: Your local changes to the following files would be overwritten by merge:\n" +
-				"\tapp/Cash/Total.php\n\tcomposer.\x1b[2Jlock\nPlease commit your changes or stash them before you merge.\nAborting\n")},
+				"\tcmd/payments/total.go\n\tgo.\x1b[2Jsum\nPlease commit your changes or stash them before you merge.\nAborting\n")},
 			nil,
 			result{
 				text: "pull failed: error: Your local changes to the following files would be overwritten by merge: " +
-					"app/Cash/Total.php, composer.lock",
+					"cmd/payments/total.go, go.sum",
 				err: true,
 			},
 		},
@@ -439,8 +507,8 @@ func TestDeleteGoneFlow(t *testing.T) {
 	}
 
 	assertViewContains(t, m, "Delete 1 gone branch in payments?", cashRoundingDeleteLine, "y delete · n cancel")
-	assertViewHasRow(t, m, "┃", "e4f5a6b fix: cash rounding", "3w", "┃")
-	assertViewHasRow(t, m, "┃", "5a6b7c8 wip: cash test", "3w", "┃")
+	assertViewHasRow(t, m, "┃", "e4f5a6b fix: cash rounding", "Sam", "3w", "┃")
+	assertViewHasRow(t, m, "┃", "5a6b7c8 wip: cash test", "Sam", "3w", "┃")
 
 	m, cmd := pressCmd(t, m, "y")
 	done := runCmd(cmd)

@@ -78,7 +78,7 @@ func (m Model) filesLines(r Rect) []string {
 	var entry func(i int) string
 
 	if m.detail.tab == TabBranches {
-		l := newCommitLayout(f.commits, width, now)
+		l := newCommitLayout(f.commits, width, now, m.styles)
 		entry = func(i int) string { return commitRow(f.commits[i], l, now, m.styles) }
 	} else {
 		l := f.list.layout(width, m.styles)

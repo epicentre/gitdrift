@@ -18,7 +18,7 @@ func TestIncomingFilesAndRules(t *testing.T) {
 	remote, app := pushedMain(t, env)
 
 	mate := env.Clone(remote, "teammate")
-	mate.Commit("composer.lock", "{}", "bump deps")
+	mate.Commit("go.sum", "", "bump deps")
 	mate.Commit("Dockerfile", "FROM scratch", "add image")
 	mate.Commit("docs/my notes é.md", "n", "notes")
 	mate.Git("push", "--quiet", "origin", "main")
@@ -44,7 +44,7 @@ func TestIncomingFilesAndRules(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, want := range []string{"composer.lock", "Dockerfile", "docs/my notes é.md"} {
+	for _, want := range []string{"go.sum", "Dockerfile", "docs/my notes é.md"} {
 		if !slices.Contains(files, want) {
 			t.Errorf("IncomingFiles = %q, missing %q", files, want)
 		}

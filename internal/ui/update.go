@@ -256,15 +256,18 @@ func (m *Model) visibleChanged(id repo.ID, ok bool) {
 // the selections that no longer apply: repositories hidden now or not safe
 // to pull any more, and gone branches that are gone no more. Once the user
 // has moved the cursor it stays on its repository; until then it stays on
-// the first row, which ends up being the most urgent one. The rows are
-// copied first: the previous model shares their backing array.
+// the first row, which ends up being the most urgent one. When the pull of
+// the cursor's repository lands, the cursor keeps its row instead (see
+// pullLanded). The rows are copied first: the previous model shares their
+// backing array.
 func (m *Model) applySnapshots(snaps []drift.Snapshot) {
 	if len(snaps) == 0 {
 		return
 	}
 
-	id, ok := m.cursorID()
-	ok = ok && m.cursorMoved
+	cur, ok := m.cursorRow()
+	id := cur.snap.Loc.ID
+	ok = ok && m.cursorMoved && !m.pullLanded(cur, snaps)
 	m.rows = slices.Clone(m.rows)
 
 	for _, s := range snaps {
@@ -286,6 +289,23 @@ func (m *Model) applySnapshots(snaps []drift.Snapshot) {
 	// are hidden now or not safe to pull any more.
 	m.visibleChanged(id, ok)
 	m.pruneGoneSelections(snaps)
+}
+
+// pullLanded reports whether snaps show r up to date for the first time
+// after a successful pull of it. The row then drops to the up-to-date rows,
+// and the cursor keeps its place so that the repository below moves up
+// under it, ready for the next pull. A failed pull, or one that leaves the
+// repository needing attention, does not count: the cursor stays on the
+// repository to show what happened.
+func (m Model) pullLanded(r row, snaps []drift.Snapshot) bool {
+	res, pulled := m.results[r.snap.Loc.ID]
+	if !pulled || res.err || r.rank() == drift.CategoryUpToDate {
+		return false
+	}
+
+	i := slices.IndexFunc(snaps, func(s drift.Snapshot) bool { return s.Loc.ID == r.snap.Loc.ID })
+
+	return i >= 0 && drift.CategoryOf(snaps[i]) == drift.CategoryUpToDate
 }
 
 // visible returns the indexes into rows of the rows the Repos pane shows:

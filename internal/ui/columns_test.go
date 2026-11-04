@@ -150,9 +150,9 @@ func TestColumnLayoutRender(t *testing.T) {
 		{
 			"a shrunk value cut from the left keeps its end",
 			[]column{{width: 21, min: 4, shrink: 1, keepEnd: true}, {width: 2}},
-			[]string{"app/Cash/Total.php", "+1"},
-			14,
-			"…/Total.php +1",
+			[]string{"cmd/payments/total.go", "+1"},
+			13,
+			"…/total.go +1",
 		},
 		{
 			"empty and missing cells are blank",

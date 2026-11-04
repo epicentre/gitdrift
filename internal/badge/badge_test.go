@@ -23,10 +23,10 @@ func TestMatchDefaults(t *testing.T) {
 		files []string
 		want  []string
 	}{
-		{"lock file", []string{"composer.lock"}, []string{labelDeps}},
+		{"lock file", []string{"go.sum"}, []string{labelDeps}},
 		{"nested manifest", []string{"packages/api/package.json"}, []string{labelDeps}},
 		{"requirements glob", []string{"requirements-dev.txt"}, []string{labelDeps}},
-		{"migrations dir", []string{"database/migrations/2026_10_26_add_refunds.php"}, []string{labelMig}},
+		{"migrations dir", []string{"db/migrations/0007_add_refunds_table.sql"}, []string{labelMig}},
 		{"migrate dir", []string{"db/migrate/20261026_add.rb"}, []string{labelMig}},
 		{"alembic versions", []string{"backend/alembic/versions/abc.py"}, []string{labelMig}},
 		{"env example", []string{".env.example"}, []string{labelEnv}},
@@ -35,7 +35,7 @@ func TestMatchDefaults(t *testing.T) {
 		{"alembic without versions", []string{"alembic/env.py"}, nil},
 		{
 			"rule order",
-			[]string{".env.example", "composer.lock", "database/migrations/x.php"},
+			[]string{".env.example", "go.sum", "db/migrations/x.sql"},
 			[]string{labelDeps, labelMig, labelEnv},
 		},
 	}

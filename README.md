@@ -143,7 +143,10 @@ and a few tokens:
 apply; for a repository without any remote, `no remote` also stands in for
 `⌂N` (all of its work is only here), and the zoom table's HERE column says
 `no remote`. A row that is busy shows `fetching…` or `pulling…`, and a pull
-result or refusal reason takes the place of the tokens.
+result or refusal reason takes the place of the tokens. When a pull brings
+the repository under the cursor up to date, its row moves down to the
+up-to-date rows and the cursor stays where it was, on the repository that
+moved up into its place, ready for the next pull.
 
 The zoom table (`z`) spells the same information out in columns: REPO, FOLDER
 (only when a row has one, and never shortened), BRANCH, LOCAL, UPSTREAM,
@@ -153,6 +156,9 @@ The Commits pane shows the tabs **Incoming** (what a pull would bring), **Base**
 (what the base branch has that this branch lacks), **Local** (uncommitted
 changes) and **Branches** (gone branches, branches with local only work, and
 stashes). Choose a commit to see its files and its diff in panes 3 and 4.
+Each commit shows its short id, subject, author (as the repository's
+`.mailmap` names them) and age; on a narrow pane the author is shortened
+first and then left out, and `z` shows it in full.
 
 ### Folder tabs and the filter
 

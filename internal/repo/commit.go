@@ -12,8 +12,8 @@ import (
 )
 
 // logFormat is the --format used with -z for every commit listing; parseLog
-// reads it back.
-const logFormat = "--format=%H%x1f%h%x1f%P%x1f%ct%x1f%an%x1f%s"
+// reads it back. The author name (%aN) follows the repository's .mailmap.
+const logFormat = "--format=%H%x1f%h%x1f%P%x1f%ct%x1f%aN%x1f%s"
 
 const (
 	logFieldSep    = "\x1f"

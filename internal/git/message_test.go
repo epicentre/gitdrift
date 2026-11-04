@@ -23,8 +23,8 @@ func TestMessage(t *testing.T) {
 		{"trimmed", &CommandError{Stderr: "  fatal: spaced \r\n"}, "fatal: spaced"},
 		{
 			"listed files",
-			&CommandError{Stderr: overwritten + "\n\tapp/Cash/Total.php\n\tREADME.md\nPlease commit your changes or stash them before you merge.\nAborting\n"},
-			overwritten + " app/Cash/Total.php, README.md",
+			&CommandError{Stderr: overwritten + "\n\tcmd/payments/total.go\n\tREADME.md\nPlease commit your changes or stash them before you merge.\nAborting\n"},
+			overwritten + " cmd/payments/total.go, README.md",
 		},
 		{
 			"more than five listed files",

@@ -185,7 +185,7 @@ func TestDiffBinaryAndTruncated(t *testing.T) {
 func TestDiffRenamedFileGetsOldPath(t *testing.T) {
 	t.Parallel()
 
-	const renamed = "app/Checkout/Total.php"
+	const renamed = "cmd/checkout/total.go"
 
 	m, fake := newTestModel(t, fixtureSnapshots(fixedNow), 120, 40)
 
@@ -215,7 +215,7 @@ func TestDiffScroll(t *testing.T) {
 
 	detail := paymentsDetail(fixedNow)
 	detail.diffs[pathTotal] = long.String()
-	detail.diffs[pathLock] = "diff --git a/composer.lock b/composer.lock\n"
+	detail.diffs[pathLock] = "diff --git a/go.sum b/go.sum\n"
 	fake.setDetail(detail)
 
 	m = press(t, pressSettle(t, loadAll(t, m, fake), keyDown), "4")
@@ -252,7 +252,7 @@ func TestDiffScroll(t *testing.T) {
 		t.Errorf("scroll = %d after a new diff loaded, want 0", m.detail.diff.scroll)
 	}
 
-	assertViewContains(t, m, "4 Diff · composer.lock")
+	assertViewContains(t, m, "4 Diff · "+pathLock)
 }
 
 func TestDiffWideAndCRLFStayInPane(t *testing.T) {

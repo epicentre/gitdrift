@@ -379,6 +379,22 @@ func TestBranchesTabLoadsOnlyHere(t *testing.T) {
 		"4 Diff · e4f5a6b",
 		"commit e4f5a6b fix: cash rounding",
 	)
+
+	// The author and age of the commit follow its line.
+	lines := paneInside(t, m, PaneDiff)
+	for i, l := range lines {
+		if !strings.Contains(l, "commit e4f5a6b") {
+			continue
+		}
+
+		if i+1 >= len(lines) || strings.TrimSpace(lines[i+1]) != "author Sam · 3w ago" {
+			t.Errorf("Diff pane lacks the author line below the commit:\n%s", strings.Join(lines, "\n"))
+		}
+
+		return
+	}
+
+	t.Errorf("Diff pane has no commit line:\n%s", strings.Join(lines, "\n"))
 }
 
 func TestBranchesTabStashRow(t *testing.T) {

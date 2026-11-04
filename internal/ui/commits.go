@@ -22,11 +22,22 @@ const (
 	moreIndent = "  "
 )
 
-// Columns of a commit row: short sha, subject and age.
+// Columns of a commit row: short sha, subject, author and age.
 const (
 	commitSHA = iota
 	commitSubject
+	commitAuthor
 	commitAge
+)
+
+const (
+	// authorGap separates the author from the subject, both free text.
+	authorGap = "  "
+	// commitAuthorMin is the narrowest an author is cut before the subject
+	// gives way; commitSubjectMin is the narrowest a subject is cut before
+	// the author column is left out.
+	commitAuthorMin  = 10
+	commitSubjectMin = 20
 )
 
 // commitsTitle is the Commits pane title in a pane w cells wide: the pane
@@ -84,7 +95,7 @@ func (m Model) commitsEntry(s drift.Snapshot, width int) func(i int) string {
 
 	switch m.detail.tab {
 	case TabIncoming, TabBase:
-		l := newCommitLayout(c.commits, width, now)
+		l := newCommitLayout(c.commits, width, now, m.styles)
 
 		return func(i int) string {
 			if i == 0 {
@@ -146,18 +157,21 @@ func emptyTabText(s drift.Snapshot, t Tab) string {
 }
 
 // newCommitLayout fits a list of commits in rows width cells wide: the sha,
-// the subject taking the width left and cut with "…" when there is none, and
-// the age right-aligned in a column as wide as the longest age, at the right
-// edge.
-func newCommitLayout(commits []repo.Commit, width int, now time.Time) columnLayout {
-	return layoutColumns(commitColumnsOf(commits, now), width-len(listIndent))
+// the subject taking the width left and cut with "…" when there is none, the
+// author muted, and the age right-aligned in a column as wide as the longest
+// age, at the right edge. When the row is too narrow the author is cut
+// first, down to commitAuthorMin, then the subject down to commitSubjectMin;
+// if both minimums do not fit, the author column is left out.
+func newCommitLayout(commits []repo.Commit, width int, now time.Time, st Styles) columnLayout {
+	return layoutColumns(commitColumnsOf(commits, now, st), width-len(listIndent))
 }
 
 // commitColumnsOf measures the columns of a list of commits.
-func commitColumnsOf(commits []repo.Commit, now time.Time) []column {
+func commitColumnsOf(commits []repo.Commit, now time.Time, st Styles) []column {
 	cols := []column{
 		commitSHA:     {},
-		commitSubject: {fill: true, shrink: 1, min: 1},
+		commitSubject: {fill: true, shrink: 2, min: commitSubjectMin},
+		commitAuthor:  {shrink: 1, min: commitAuthorMin, drop: 1, gap: len(authorGap), style: st.Muted},
 		commitAge:     {align: alignRight, gap: len(ageGap)},
 	}
 
@@ -173,19 +187,19 @@ func commitCells(c repo.Commit, now time.Time) []string {
 	return []string{
 		commitSHA:     commitShort(c),
 		commitSubject: sanitize(c.Subject),
+		commitAuthor:  sanitize(c.Author),
 		commitAge:     relAge(c.When, now),
 	}
 }
 
-// commitRow renders one commit of a list laid out by l: short sha, subject
-// and age. Merge commits are muted.
+// commitRow renders one commit of a list laid out by l: short sha, subject,
+// author and age. Merge commits are muted whole.
 func commitRow(c repo.Commit, l columnLayout, now time.Time, st Styles) string {
-	line := listIndent + l.render(commitCells(c, now))
 	if c.Merge {
-		return st.Muted.Render(line)
+		l = l.withStyle(st.Muted)
 	}
 
-	return line
+	return listIndent + l.render(commitCells(c, now))
 }
 
 // commitShort is the abbreviated id of c.

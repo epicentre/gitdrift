@@ -2,6 +2,7 @@ package ui
 
 import (
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
@@ -141,7 +142,7 @@ type diffState struct {
 	// title names what the diff shows: a file path or a short commit id.
 	title string
 	// header starts a whole-commit diff with the commit it shows.
-	header    string
+	header    []string
 	lines     []diffLine
 	truncated bool
 	binary    bool
@@ -154,8 +155,13 @@ func (d diffState) loaded(msg diffLoadedMsg) diffState {
 	d.loading, d.err, d.truncated, d.scroll = false, msg.err, msg.truncated, 0
 	d.lines = parseDiff(msg.text)
 
-	if d.header != "" && msg.err == nil {
-		d.lines = append([]diffLine{{text: d.header, kind: lineMeta}}, d.lines...)
+	if len(d.header) > 0 && msg.err == nil {
+		head := make([]diffLine, 0, len(d.header)+len(d.lines))
+		for _, h := range d.header {
+			head = append(head, diffLine{text: h, kind: lineMeta})
+		}
+
+		d.lines = append(head, d.lines...)
 	}
 
 	return d
@@ -235,9 +241,15 @@ func (m Model) diffTitle() string {
 	return titleDiff
 }
 
-// commitHeader starts the whole-commit diff of c.
-func commitHeader(c repo.Commit) string {
-	return "commit " + commitShort(c) + " " + sanitize(c.Subject)
+// commitHeader starts the whole-commit diff of c: its short id and
+// subject, then its author and age when it has an author.
+func commitHeader(c repo.Commit, now time.Time) []string {
+	head := []string{"commit " + commitShort(c) + " " + sanitize(c.Subject)}
+	if author := sanitize(c.Author); author != "" {
+		head = append(head, "author "+author+separator+updatedLabel(c.When, now))
+	}
+
+	return head
 }
 
 // scrollDiff scrolls the Diff pane with a navigation key.

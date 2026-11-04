@@ -454,10 +454,10 @@ func wideDetail(now time.Time) fakeDetail {
 		{SHA: shaInvoices, Short: shaInvoices[:7], Subject: "fix: 漢字 invoice totals", When: now.Add(-400 * day)},
 	}
 	d.files = []repo.FileChange{
-		{Path: "app/漢字/ｃｈｅｃｋｏｕｔ.php", Status: "M", Added: 3, Deleted: 1},
+		{Path: "cmd/漢字/ｃｈｅｃｋｏｕｔ.go", Status: "M", Added: 3, Deleted: 1},
 		{Path: "public/🚀.png", Status: "M", Binary: true},
 		{Path: pathLock, Status: "M", Added: 120, Deleted: 80},
-		{Path: "database/migrations/漢字_ｉｎｉｔ.php", Status: "A", Added: 9},
+		{Path: "migrations/漢字_ｉｎｉｔ.sql", Status: "A", Added: 9},
 	}
 	d.onlyHere = map[string][]repo.Commit{
 		goneWide: {{SHA: shaGone, Short: shaGone[:7], Subject: "fix: 漢字 rounding 🎉", When: now.Add(-21 * day)}},
@@ -543,26 +543,26 @@ func headerSnapshots(now time.Time) []drift.Snapshot {
 // Detail fixture values: what a pull of payments brings in and the work on
 // its gone branch feature/cash-rounding.
 const (
-	pathTotal     = "app/Cash/Total.php"
-	pathLock      = "composer.lock"
+	pathTotal     = "cmd/payments/total.go"
+	pathLock      = "go.sum"
 	pathLogo      = "public/logo.png"
 	shaRefunds    = "f00dfeed0123456789abcdef0123456789abcdef"
 	shaInvoices   = "0badc0de0123456789abcdef0123456789abcdef"
 	shaCashTest   = "5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b"
-	totalDiffHead = "diff --git a/app/Cash/Total.php b/app/Cash/Total.php"
+	totalDiffHead = "diff --git a/cmd/payments/total.go b/cmd/payments/total.go"
 
-	// totalDiff changes one line of app/Cash/Total.php; its lines are
+	// totalDiff changes one line of cmd/payments/total.go; its lines are
 	// indented with tabs.
 	totalDiff = totalDiffHead + "\n" +
 		"index 3f2a1b0..8c9d4e2 100644\n" +
-		"--- a/app/Cash/Total.php\n" +
-		"+++ b/app/Cash/Total.php\n" +
+		"--- a/cmd/payments/total.go\n" +
+		"+++ b/cmd/payments/total.go\n" +
 		"@@ -12,4 +12,4 @@\n" +
-		" \tpublic function total(): float\n" +
-		" \t{\n" +
-		"-\t\treturn round($this->sum, 1);\n" +
-		"+\t\treturn round($this->sum, 2);\n" +
-		" \t}\n"
+		" func (c Cash) Total() float64 {\n" +
+		" \tsum := c.Sum()\n" +
+		"-\treturn round(sum, 1)\n" +
+		"+\treturn round(sum, 2)\n" +
+		" }\n"
 )
 
 // incomingCommits are the newest commits a pull of payments brings in.
@@ -586,7 +586,7 @@ func paymentsDetail(now time.Time) fakeDetail {
 		files: []repo.FileChange{
 			{Path: pathTotal, Status: "M", Added: 1, Deleted: 1},
 			{Path: pathLock, Status: "M", Added: 120, Deleted: 80},
-			{Path: "database/migrations/2026_10_01_add_refunds.php", Status: "A", Added: 40},
+			{Path: "migrations/0007_add_refunds_table.sql", Status: "A", Added: 40},
 			{Path: ".env.example", Status: "M", Added: 2},
 			{Path: pathLogo, Status: "M", Binary: true},
 		},

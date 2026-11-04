@@ -22,13 +22,13 @@ func TestFileRow(t *testing.T) {
 	skipEastAsianWidths(t)
 
 	custom := append(badge.Defaults(),
-		badge.Rule{Label: "cash", Dir: "app/Cash"},
+		badge.Rule{Label: "cash", Dir: "cmd/payments"},
 		badge.Rule{Label: "bad\x1b[2J\u202Ename", Name: "*.png"},
 	)
 	total := repo.FileChange{Path: pathTotal, Status: "M", Added: 1, Deleted: 1}
 	lock := repo.FileChange{Path: pathLock, Status: "M", Added: 120, Deleted: 80}
 	logo := repo.FileChange{Path: pathLogo, Status: "M", Binary: true}
-	controller := repo.FileChange{Path: "app/Http/Controllers/CheckoutController.php", Status: "M", Added: 5, Deleted: 1}
+	controller := repo.FileChange{Path: "internal/checkout/http/handlers/checkout.go", Status: "M", Added: 5, Deleted: 1}
 
 	tests := []struct {
 		name  string
@@ -54,7 +54,7 @@ func TestFileRow(t *testing.T) {
 			repo.FileChange{Path: "src/very/deep/directory/tree/file.go", Status: "M", Added: 3, Deleted: 2},
 			badge.Defaults(), 30, " M …ectory/tree/file.go  +3 -2",
 		},
-		{"long path keeps its file name", nil, controller, badge.Defaults(), 46, " M …/Controllers/CheckoutController.php  +5 -1"},
+		{"long path keeps its file name", nil, controller, badge.Defaults(), 46, " M …/checkout/http/handlers/checkout.go  +5 -1"},
 		{"sanitized", nil, repo.FileChange{Path: "a\x1b[2J\tb.txt", Status: "M", Added: 1}, badge.Defaults(), 40, " M " + pad("ab.txt", 30) + "  +1 -0"},
 		{"repository rule", nil, total, custom, 40, " M " + pad(pathTotal, 24) + "  +1 -1  cash"},
 		{"label sanitized", nil, logo, custom, 40, " M " + pad(pathLogo, 20) + "  binary  badname"},
@@ -72,7 +72,7 @@ func TestFileRow(t *testing.T) {
 			" M " + pad(pathTotal, 29) + "   +1 -1",
 		},
 		{"binary ends with the deleted counts", []repo.FileChange{total, logo}, logo, badge.Defaults(), 40, " M " + pad(pathLogo, 29) + "  binary"},
-		{"a narrow pane drops the badges first", nil, lock, badge.Defaults(), 30, " M " + pad(pathLock, 17) + "  +120 -80"},
+		{"a narrow pane drops the badges first", nil, lock, badge.Defaults(), 24, " M " + pad(pathLock, 11) + "  +120 -80"},
 	}
 
 	for _, tt := range tests {
@@ -114,7 +114,7 @@ func TestFilesPaneColumns(t *testing.T) {
 	}{
 		{pathTotal, "+1", "-1", ""},
 		{pathLock, "+120", "-80", badgeDeps},
-		{"2026_10_01_add_refunds.php", "+40", "-0", badgeMig},
+		{"0007_add_refunds_table.sql", "+40", "-0", badgeMig},
 		{".env.example", "+2", "-0", "env"},
 		{pathLogo, "", "binary", ""},
 	}
@@ -198,7 +198,7 @@ func BenchmarkFilesPane(b *testing.B) {
 	files := make([]repo.FileChange, 5000)
 	for i := range files {
 		files[i] = repo.FileChange{
-			Path: fmt.Sprintf("app/Http/Controllers/Module%04d/CheckoutController.php", i), Status: "M", Added: i, Deleted: i % 7,
+			Path: fmt.Sprintf("internal/checkout/module%04d/http/handlers/checkout.go", i), Status: "M", Added: i, Deleted: i % 7,
 		}
 	}
 
@@ -285,14 +285,14 @@ func TestFilesPaneUsesRepoBadgeRules(t *testing.T) {
 
 	snaps := fixtureSnapshots(fixedNow)
 
-	snaps[0].BadgeRules = append(badge.Defaults(), badge.Rule{Label: "cash", Dir: "app/Cash"})
+	snaps[0].BadgeRules = append(badge.Defaults(), badge.Rule{Label: "cash", Dir: "cmd/payments"})
 
 	m, fake := newTestModel(t, snaps, 120, 40)
 	fake.setDetail(paymentsDetail(fixedNow))
 	m = pressSettle(t, loadAll(t, m, fake), keyDown, "3")
 
 	assertViewHasRow(t, m, "▸ M "+pathTotal, "+1", "-1", "cash")
-	assertViewHasRow(t, m, "┃  M composer.lock", "+120", "-80", badgeDeps)
+	assertViewHasRow(t, m, "┃  M "+pathLock, "+120", "-80", badgeDeps)
 }
 
 func TestFilesPaneBadgesOnlyOnIncoming(t *testing.T) {
@@ -318,7 +318,7 @@ func TestFilesPaneBadgesOnlyOnIncoming(t *testing.T) {
 			m = pressSettle(t, loadAll(t, m, fake), append([]string{keyDown, "3"}, tt.keys...)...)
 
 			assertViewContains(t, m, tt.wantTitle)
-			assertViewHasRow(t, m, "┃  M composer.lock", "+120", "-80")
+			assertViewHasRow(t, m, "┃  M "+pathLock, "+120", "-80")
 
 			if got := rowPattern("+120", "-80", badgeDeps).MatchString(viewText(m)); got != tt.badges {
 				t.Errorf("Files pane shows badges = %v, want %v:\n%s", got, tt.badges, viewText(m))
