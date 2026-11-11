@@ -366,6 +366,58 @@ func TestDeleteDialogAlignsCommits(t *testing.T) {
 	}
 }
 
+// TestPullConfirmNotesLocalChanges checks that the pull dialog says local
+// changes are kept when one of its repositories has them, and only then.
+func TestPullConfirmNotesLocalChanges(t *testing.T) {
+	t.Parallel()
+
+	const note = "Local changes are kept."
+
+	clean := behindMain(nameAPIGateway, 12, nil, fixedNow)
+
+	edited := behindMain(nameNotifications, 4, nil, fixedNow)
+	edited.Status.Tracked, edited.Status.Changed = 1, []string{"config/local.yaml"}
+
+	untracked := behindMain(nameNotifications, 4, nil, fixedNow)
+	untracked.Status.Untracked = 1
+
+	tests := []struct {
+		name     string
+		snaps    []drift.Snapshot
+		wantNote bool
+	}{
+		{"clean repositories", []drift.Snapshot{clean}, false},
+		{"one repository with local changes", []drift.Snapshot{clean, edited}, true},
+		{"one repository with untracked files", []drift.Snapshot{clean, untracked}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			body := pullConfirm{snaps: tt.snaps}.view(dialogEnv{st: newStyles(true)}, 80, 10).body
+
+			got := make([]string, len(body))
+			for i, l := range body {
+				got[i] = ansi.Strip(l)
+			}
+
+			want := len(tt.snaps)
+			if tt.wantNote {
+				want += 2
+			}
+
+			if len(got) != want || tt.wantNote != (got[len(got)-1] == note) {
+				t.Fatalf("pull dialog lines = %q, want %d lines, note %v", got, want, tt.wantNote)
+			}
+
+			if tt.wantNote && got[len(got)-2] != "" {
+				t.Errorf("line before the note = %q, want it blank", got[len(got)-2])
+			}
+		})
+	}
+}
+
 // TestPullConfirmAlignsLines checks the lines of the pull dialog: names and
 // branches in columns as wide as the longest, cut with "…" in a narrow
 // window (names from the left, so repositories in one folder stay apart),

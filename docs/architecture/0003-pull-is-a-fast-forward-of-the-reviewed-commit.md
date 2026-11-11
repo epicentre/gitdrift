@@ -1,6 +1,7 @@
 # 3. Pull is a fast-forward of the reviewed commit
 
-- Status: Accepted
+- Status: Accepted. The local changes blocker is superseded by
+  [21](0021-pull-over-unrelated-local-changes.md).
 - Date: 2026-10-27
 
 ## Context

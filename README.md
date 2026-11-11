@@ -124,7 +124,7 @@ and a few tokens:
 
 | Marker | Meaning                                                              |
 | ------ | -------------------------------------------------------------------- |
-| `!`    | needs attention: detached HEAD, operation in progress, fetch failed, no upstream, upstream gone, diverged, local changes while behind, the configured base is missing, behind the base, or an inspection error |
+| `!`    | needs attention: detached HEAD, operation in progress, fetch failed, no upstream, upstream gone, diverged, local changes to files a pull would change, the configured base is missing, behind the base, or an inspection error |
 | `↓`    | behind its upstream                                                  |
 | `✓`    | up to date                                                           |
 | `●`    | selected for pull (after the marker)                                 |
@@ -279,11 +279,16 @@ confirmed is the commit you get.
 
 Right before the merge gdrift re-reads the repository and skips the pull when
 anything changed since you reviewed it: another branch is checked out, HEAD or
-the upstream moved, or a blocker appeared (local changes to tracked files,
-diverged or ahead of the upstream, detached HEAD, no upstream, upstream gone, an
+the upstream moved, or a blocker appeared (local changes to a file the pull
+would change or unmerged files, diverged or ahead of the upstream, detached HEAD, no upstream, upstream gone, an
 operation in progress, a fetch of the upstream's remote that failed or has not
 run yet, nothing to pull, or a repository that could not be inspected).
 `--no-autostash` keeps `merge.autoStash` from creating stashes.
+
+Local changes to other files do not stop a pull: git keeps them as they are,
+staged ones staged, and the confirm dialog says so. gdrift compares file paths
+only, so a local change and an incoming change to one file stop the pull even
+when they touch different lines.
 
 `--no-overwrite-ignore` matters because git otherwise lets a merge overwrite
 ignored files. If the incoming commits add a tracked `.env` and you have a local

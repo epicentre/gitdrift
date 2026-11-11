@@ -56,6 +56,11 @@ type Status struct {
 	Ahead, Behind int
 	// Tracked counts changed tracked entries; Untracked counts untracked paths.
 	Tracked, Untracked int
+	// Changed lists the paths of the changed tracked entries, in git's
+	// order; a rename or copy adds its original path after the new one.
+	Changed []string
+	// Unmerged counts the tracked entries with unresolved conflicts.
+	Unmerged int
 
 	// Operation is the operation in progress, if any.
 	Operation Operation
@@ -100,6 +105,8 @@ func ReadStatus(ctx context.Context, g *git.Runner, loc Location) (Status, error
 		Behind:    parsed.behind,
 		Tracked:   parsed.tracked,
 		Untracked: parsed.untracked,
+		Changed:   parsed.changed,
+		Unmerged:  parsed.unmerged,
 		Operation: readOperation(loc.GitDir),
 	}
 
@@ -275,6 +282,8 @@ type statusV2 struct {
 	behind    int
 	tracked   int
 	untracked int
+	unmerged  int
+	changed   []string
 }
 
 const (
@@ -282,6 +291,14 @@ const (
 	headDetached   = "(detached)"
 	headerPrefix   = "# "
 	renameEntryTag = '2'
+)
+
+// Space-separated fields before the path of a porcelain v2 entry: ordinary
+// changes, renames or copies, and unmerged entries.
+const (
+	changedFields  = 8
+	renamedFields  = 9
+	unmergedFields = 10
 )
 
 // parseStatusV2 parses NUL-separated porcelain v2 output. A rename or copy
@@ -293,29 +310,92 @@ func parseStatusV2(out []byte) (statusV2, error) {
 
 	for i := 0; i < len(entries); i++ {
 		entry := string(entries[i])
-		if entry == "" {
-			continue
-		}
 
 		switch {
+		case entry == "":
+			continue
 		case strings.HasPrefix(entry, headerPrefix):
 			if err := st.parseHeader(entry[len(headerPrefix):]); err != nil {
 				return statusV2{}, err
 			}
-		case entry[0] == '1' || entry[0] == 'u':
-			st.tracked++
-		case entry[0] == renameEntryTag:
-			st.tracked++
-			i++ // skip the original path
-		case entry[0] == '?':
-			st.untracked++
-		case entry[0] == '!':
-		default:
-			return statusV2{}, fmt.Errorf("unexpected entry %q", entry)
+
+			continue
+		}
+
+		var next []byte
+		if i+1 < len(entries) {
+			next = entries[i+1]
+		}
+
+		usedNext, err := st.parseEntry(entry, next)
+		if err != nil {
+			return statusV2{}, err
+		}
+
+		if usedNext {
+			i++
 		}
 	}
 
 	return st, nil
+}
+
+// parseEntry records one entry that is not a header. next is the field after
+// it, which a rename or copy entry takes as its original path; usedNext
+// reports that it did.
+func (st *statusV2) parseEntry(entry string, next []byte) (usedNext bool, err error) {
+	switch entry[0] {
+	case '1':
+		return false, st.addChanged(entry, changedFields)
+	case 'u':
+		st.unmerged++
+
+		return false, st.addChanged(entry, unmergedFields)
+	case renameEntryTag:
+		if len(next) == 0 {
+			return false, fmt.Errorf("rename without its original path %q", entry)
+		}
+
+		if err := st.addChanged(entry, renamedFields); err != nil {
+			return false, err
+		}
+
+		st.changed = append(st.changed, string(next))
+
+		return true, nil
+	case '?':
+		st.untracked++
+	case '!':
+	default:
+		return false, fmt.Errorf("unexpected entry %q", entry)
+	}
+
+	return false, nil
+}
+
+// addChanged counts a changed tracked entry and records its path, which
+// follows the first n fields of the entry.
+func (st *statusV2) addChanged(entry string, n int) error {
+	path, err := entryPath(entry, n)
+	if err != nil {
+		return err
+	}
+
+	st.tracked++
+	st.changed = append(st.changed, path)
+
+	return nil
+}
+
+// entryPath returns what follows the first n space-separated fields of a
+// porcelain v2 entry: its path, which may itself contain spaces.
+func entryPath(entry string, n int) (string, error) {
+	parts := strings.SplitN(entry, " ", n+1)
+	if len(parts) <= n || parts[n] == "" {
+		return "", fmt.Errorf("entry without a path %q", entry)
+	}
+
+	return parts[n], nil
 }
 
 func (st *statusV2) parseHeader(h string) error {

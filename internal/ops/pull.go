@@ -43,17 +43,28 @@ type PullOutcome struct {
 }
 
 // Pull fast-forwards the current branch to the reviewed upstream commit. It
-// re-reads the status first and skips when the repository is no longer safe
-// or no longer matches the review (another branch, HEAD or upstream commit).
-// It never fetches, and git itself refuses to overwrite local files, ignored
-// ones included.
+// re-reads the status, and with local changes the files the pull would
+// change, and skips when the repository is no longer safe or no longer
+// matches the review (another branch, HEAD or upstream commit). Local
+// changes to other files stay as they are. It never fetches, and git itself
+// refuses to overwrite local files, ignored ones included.
 func Pull(ctx context.Context, g *git.Runner, req PullRequest) PullOutcome {
 	st, err := repo.ReadStatus(ctx, g, req.Loc)
 	if err != nil {
 		return PullOutcome{Err: err}
 	}
 
-	if blockers := drift.PullBlockers(drift.Snapshot{Loc: req.Loc, Status: st, Fetch: req.Fetch}); len(blockers) > 0 {
+	snap := drift.Snapshot{Loc: req.Loc, Status: st, Fetch: req.Fetch}
+
+	if st.Tracked > 0 {
+		if snap.Incoming, err = repo.IncomingFiles(ctx, g, req.Loc, st); err != nil {
+			return PullOutcome{Err: err}
+		}
+
+		snap.IncomingRead = true
+	}
+
+	if blockers := drift.PullBlockers(snap); len(blockers) > 0 {
 		return PullOutcome{Skipped: blockers[0]}
 	}
 

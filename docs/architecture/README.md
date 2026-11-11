@@ -78,7 +78,7 @@ read the group's work once, then read status, base and, when behind, the
 incoming files and badges for each member. A failure in one member is stored
 in that member's snapshot; the others continue.
 
-**Pull** (decision 3).
+**Pull** (decisions 3 and 21).
 
 ```mermaid
 sequenceDiagram
@@ -90,8 +90,8 @@ sequenceDiagram
     UI->>WS: Pull(HeadSHA, Branch, UpstreamSHA, FetchState)
     WS->>WS: take the group lock
     WS->>Ops: Pull
-    Ops->>Git: status (re-read)
-    Ops->>Ops: blockers, HEAD, branch, upstream sha unchanged?
+    Ops->>Git: status (re-read), and the incoming files when there are local changes
+    Ops->>Ops: blockers (local changes to incoming files among them), HEAD, branch, upstream sha unchanged?
     Ops->>Git: merge --ff-only --no-autostash --no-overwrite-ignore -- <sha>
     Git-->>UI: outcome (pulled N, skipped: reason, or git's message)
     UI->>WS: Refresh(group, fetch=false)
@@ -165,7 +165,7 @@ one, and the old one's status says so.
 | --- | --- | --- |
 | [1](0001-run-git-through-an-allowlist.md) | Run the git CLI through an argv allowlist | Accepted |
 | [2](0002-isolate-git-processes.md) | Isolate git processes and stop them gracefully | Accepted |
-| [3](0003-pull-is-a-fast-forward-of-the-reviewed-commit.md) | Pull is a fast-forward of the reviewed commit | Accepted |
+| [3](0003-pull-is-a-fast-forward-of-the-reviewed-commit.md) | Pull is a fast-forward of the reviewed commit | Accepted (local changes blocker superseded by 21) |
 | [4](0004-guard-fetch-with-prune.md) | Fetch with prune, guarded against deleting local refs | Accepted |
 | [5](0005-delete-gone-branches-after-checks.md) | Delete gone branches with `-D` after pre-checks | Accepted |
 | [6](0006-serialize-work-per-repository-group.md) | Serialize work per repository group | Accepted |
@@ -183,6 +183,7 @@ one, and the old one's status says so.
 | [18](0018-switch-tabs-with-the-arrow-keys.md) | Switch tabs with the arrow keys | Accepted |
 | [19](0019-repos-pane-on-top.md) | Put the Repos pane on top at full width | Accepted |
 | [20](0020-keep-the-cursor-row-when-a-pull-lands.md) | Keep the cursor's row when a pull lands | Accepted |
+| [21](0021-pull-over-unrelated-local-changes.md) | Pull over local changes the pull does not touch | Accepted |
 
 ### Adding a decision
 

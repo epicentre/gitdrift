@@ -62,7 +62,12 @@ type Snapshot struct {
 	// BadgeRules are the repository's badge rules: the built-in ones and
 	// its gitdrift.badge values.
 	BadgeRules []badge.Rule
-	Fetch      FetchState
+	// Incoming lists the files a pull would change (see repo.IncomingFiles).
+	Incoming []string
+	// IncomingRead is true once Incoming was read along with Status. Until
+	// then every local change counts as one a pull would touch.
+	IncomingRead bool
+	Fetch        FetchState
 	// Err is set when inspecting the repository failed.
 	Err error
 }
@@ -106,11 +111,50 @@ func PullBlockers(s Snapshot) []string {
 		out = append(out, "nothing to pull")
 	}
 
-	if st.Tracked > 0 {
-		out = append(out, reasonLocalChanges)
+	if reason := localChangesReason(s); reason != "" {
+		out = append(out, reason)
 	}
 
 	return out
+}
+
+// localChangesReason says why the local changes of s stop a pull, or returns
+// "" when a pull keeps them. git refuses to fast-forward over an unmerged
+// entry or over a changed file that the pull would change, so changes stop a
+// pull only when one of their paths is among the incoming files. Until those
+// are read, every change stops it.
+func localChangesReason(s Snapshot) string {
+	st := s.Status
+
+	switch {
+	case st.Tracked == 0:
+		return ""
+	case !s.IncomingRead || st.Unmerged > 0:
+		return reasonLocalChanges
+	}
+
+	incoming := make(map[string]bool, len(s.Incoming))
+	for _, f := range s.Incoming {
+		incoming[f] = true
+	}
+
+	var touched []string
+
+	for _, path := range st.Changed {
+		if incoming[path] {
+			touched = append(touched, path)
+			delete(incoming, path) // count a path once
+		}
+	}
+
+	switch len(touched) {
+	case 0:
+		return ""
+	case 1:
+		return reasonLocalChanges + " to " + touched[0]
+	default:
+		return fmt.Sprintf("%s to %s and %d more", reasonLocalChanges, touched[0], len(touched)-1)
+	}
 }
 
 // upstreamBlockers covers HEAD and upstream state: detached, missing, gone,
@@ -164,14 +208,17 @@ func AttentionReasons(s Snapshot) []string {
 		out = append(out, reasonFetchFailed+remote)
 	}
 
-	out = append(out, branchReasons(st)...)
+	out = append(out, branchReasons(s)...)
 
 	return append(out, baseReasons(s.Base)...)
 }
 
-// branchReasons covers upstream divergence and local changes that matter.
-func branchReasons(st repo.Status) []string {
+// branchReasons covers upstream divergence and local changes that stop a
+// pull.
+func branchReasons(s Snapshot) []string {
 	var out []string
+
+	st := s.Status
 
 	if !st.Detached && st.Upstream == "" {
 		out = append(out, reasonNoUpstream)
@@ -185,8 +232,10 @@ func branchReasons(st repo.Status) []string {
 		out = append(out, reasonDiverged)
 	}
 
-	if st.Tracked > 0 && st.Behind > 0 {
-		out = append(out, reasonLocalChanges)
+	if st.Behind > 0 {
+		if reason := localChangesReason(s); reason != "" {
+			out = append(out, reason)
+		}
 	}
 
 	return out

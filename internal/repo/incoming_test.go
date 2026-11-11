@@ -60,6 +60,43 @@ func TestIncomingFilesAndRules(t *testing.T) {
 	}
 }
 
+// TestIncomingFilesListsBothSidesOfRename checks that a rename lists the
+// path it removes as well as the one it adds: a pull touches both.
+func TestIncomingFilesListsBothSidesOfRename(t *testing.T) {
+	t.Parallel()
+
+	env := gittest.New(t)
+	remote, app := pushedMain(t, env)
+
+	mate := env.Clone(remote, "teammate")
+	mate.Git("mv", "base.txt", "moved.txt")
+	mate.Git("commit", "--quiet", "-m", "move base")
+	mate.Git("push", "--quiet", "origin", "main")
+
+	app.Git("fetch", "--quiet", "origin")
+
+	g := env.Runner()
+
+	loc, err := repo.Locate(t.Context(), g, app.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	st, err := repo.ReadStatus(t.Context(), g, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	files, err := repo.IncomingFiles(t.Context(), g, loc, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := cmp.Diff([]string{"base.txt", "moved.txt"}, files); diff != "" {
+		t.Errorf("IncomingFiles mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestIncomingFilesNotBehind(t *testing.T) {
 	t.Parallel()
 

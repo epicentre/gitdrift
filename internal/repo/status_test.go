@@ -115,6 +115,10 @@ func TestReadStatusLocalChanges(t *testing.T) {
 	if got.Tracked != 2 || got.Untracked != 1 {
 		t.Errorf("Tracked = %d, Untracked = %d, want 2 and 1", got.Tracked, got.Untracked)
 	}
+
+	if diff := cmp.Diff([]string{"README.md", "staged.txt"}, got.Changed); diff != "" {
+		t.Errorf("Changed mismatch (-want +got):\n%s", diff)
+	}
 }
 
 func TestReadStatusRenameCountsOnce(t *testing.T) {
@@ -126,6 +130,11 @@ func TestReadStatusRenameCountsOnce(t *testing.T) {
 	got := readStatus(t, env, r)
 	if got.Tracked != 1 || got.Untracked != 0 {
 		t.Errorf("Tracked = %d, Untracked = %d, want 1 and 0", got.Tracked, got.Untracked)
+	}
+
+	// A pull that touches the original path would touch the rename too.
+	if diff := cmp.Diff([]string{"RENAMED.md", "README.md"}, got.Changed); diff != "" {
+		t.Errorf("Changed mismatch (-want +got):\n%s", diff)
 	}
 }
 

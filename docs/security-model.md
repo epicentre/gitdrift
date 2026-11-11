@@ -54,7 +54,10 @@ own are trusted like any other git command you run in them.
   come after `--end-of-options`; force flags, `--output` and `--ext-diff` are
   refused everywhere.
 - **Re-checks before every write.** A pull merges only the reviewed commit
-  and only while HEAD, the branch and the upstream are unchanged. A deletion
+  and only while HEAD, the branch and the upstream are unchanged, and only
+  when no file it would change has local changes
+  ([decision 21](architecture/0021-pull-over-unrelated-local-changes.md));
+  git refuses such a merge as well. A deletion
   re-checks the branch after asking the remote, right before deleting.
 - **Fail closed.** A remote whose state is unknown blocks pulls and deletions
   of what depends on it

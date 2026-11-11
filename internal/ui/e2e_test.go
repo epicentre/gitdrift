@@ -23,13 +23,14 @@ const (
 )
 
 // behindClone creates work/<name> with two commits on its remote, of which
-// it has only the first: the clone is behind its upstream by one.
-func behindClone(t *testing.T, env *gittest.Env, name string) *gittest.Repo {
+// it has only the first: the clone is behind its upstream by one commit,
+// which writes the file incoming.
+func behindClone(t *testing.T, env *gittest.Env, name, incoming string) *gittest.Repo {
 	t.Helper()
 
 	clone := env.Clone(env.Remote(name+".git"), name)
 	clone.Commit("README.md", "hello\n", "initial")
-	clone.Commit("CHANGELOG.md", "one\n", "teammate change")
+	clone.Commit(incoming, "one\n", "teammate change")
 	clone.Git("push", "--quiet", "-u", "origin", "main")
 	// The second commit now exists only on the remote and origin/main.
 	clone.Git("reset", "--quiet", "--hard", "HEAD~1")
@@ -55,14 +56,20 @@ func waitForScreen(t *testing.T, tm *teatest.TestModel, want string) {
 	}, teatest.WithDuration(e2eWait), teatest.WithCheckInterval(e2eCheck))
 }
 
+// TestEndToEndPull pulls every safe repository with P: api is clean, web has
+// a local change to a file the pull does not touch and keeps it, and docs
+// has a local change to the incoming file and is left alone.
 func TestEndToEndPull(t *testing.T) {
 	t.Parallel()
 
 	env := gittest.New(t)
-	api := behindClone(t, env, "api")
-	web := behindClone(t, env, "web")
+	api := behindClone(t, env, "api", "CHANGELOG.md")
+	web := behindClone(t, env, "web", "CHANGELOG.md")
 	web.Write("README.md", "local edit\n")
-	webHead := web.Git("rev-parse", "HEAD")
+
+	docs := behindClone(t, env, "docs", "README.md")
+	docs.Write("README.md", "local edit\n")
+	docsHead := docs.Git("rev-parse", "HEAD")
 
 	root := env.WorkDir()
 
@@ -78,10 +85,11 @@ func TestEndToEndPull(t *testing.T) {
 
 	tm := teatest.NewTestModel(t, ui.New(t.Context(), ws, root), teatest.WithInitialTermSize(120, 40))
 
-	waitForScreen(t, tm, "2 repos · 2 behind · 1 need attention")
+	waitForScreen(t, tm, "3 repos · 3 behind · 1 need attention")
 	tm.Type("P")
 	tm.Type("y")
-	waitForScreen(t, tm, "pulled 1")
+	// Each pull re-reads its repository; only docs is still behind.
+	waitForScreen(t, tm, "3 repos · 1 behind · 1 need attention")
 
 	if err := tm.Quit(); err != nil {
 		t.Fatal(err)
@@ -89,15 +97,21 @@ func TestEndToEndPull(t *testing.T) {
 
 	tm.WaitFinished(t, teatest.WithFinalTimeout(e2eWait))
 
-	if head, upstream := api.Git("rev-parse", "HEAD"), api.Git("rev-parse", "@{upstream}"); head != upstream {
-		t.Errorf("api HEAD = %s, want its upstream %s", head, upstream)
-	}
-
-	if head := web.Git("rev-parse", "HEAD"); head != webHead {
-		t.Errorf("web HEAD = %s, want it unchanged at %s", head, webHead)
+	for _, r := range []*gittest.Repo{api, web} {
+		if head, upstream := r.Git("rev-parse", "HEAD"), r.Git("rev-parse", "@{upstream}"); head != upstream {
+			t.Errorf("%s HEAD = %s, want its upstream %s", r.Path, head, upstream)
+		}
 	}
 
 	if status := web.Git("status", "--porcelain"); status != "M README.md" {
 		t.Errorf("web status = %q, want its local change kept", status)
+	}
+
+	if head := docs.Git("rev-parse", "HEAD"); head != docsHead {
+		t.Errorf("docs HEAD = %s, want it unchanged at %s", head, docsHead)
+	}
+
+	if status := docs.Git("status", "--porcelain"); status != "M README.md" {
+		t.Errorf("docs status = %q, want its local change kept", status)
 	}
 }

@@ -31,6 +31,10 @@ const (
 	footerDeleteDialog = "y delete · n cancel"
 	footerClose        = "press any key to close"
 
+	// localChangesKept ends the pull dialog when a repository in it has
+	// local changes: a pull goes ahead only when it leaves them alone.
+	localChangesKept = "Local changes are kept."
+
 	// maxDeleteCommits is how many commits of a branch the delete dialog
 	// lists before "+N more".
 	maxDeleteCommits = 5
@@ -314,8 +318,9 @@ const (
 // repoLabel) and branch as wide as the longest, cut with "…" when the window
 // is narrow, branch first; the name is cut from the left, so repositories in
 // one folder stay apart. Then ↓ with the behind count right-aligned after
-// it, the arrow and the upstream tip.
-func (d pullConfirm) view(_ dialogEnv, width, _ int) dialogView {
+// it, the arrow and the upstream tip. A note after a blank line says that
+// local changes are kept when a repository has them.
+func (d pullConfirm) view(env dialogEnv, width, _ int) dialogView {
 	cols := []column{
 		pullName:   {min: pullNameMin, shrink: 2, keepEnd: true},
 		pullBranch: {min: pullBranchMin, shrink: 1, gap: pullGap},
@@ -356,6 +361,10 @@ func (d pullConfirm) view(_ dialogEnv, width, _ int) dialogView {
 	v.body = make([]string, len(lines))
 	for i, cells := range lines {
 		v.body[i] = l.render(cells)
+	}
+
+	if slices.ContainsFunc(d.snaps, func(s drift.Snapshot) bool { return localChanges(s.Status) > 0 }) {
+		v.body = append(v.body, "", env.st.Muted.Render(localChangesKept))
 	}
 
 	return v

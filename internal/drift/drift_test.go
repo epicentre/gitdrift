@@ -21,6 +21,10 @@ const (
 
 	remoteOrigin  = "origin"
 	refOriginMain = "origin/main"
+
+	// Paths of local changes and incoming files.
+	pathLocalConfig = "config/local.yaml"
+	pathHandler     = "api/handler.go"
 )
 
 // safeBehind is a snapshot that is safe to pull: on a branch, tracking
@@ -43,6 +47,15 @@ func with(mut func(*drift.Snapshot)) drift.Snapshot {
 	mut(&s)
 
 	return s
+}
+
+// changedAndIncoming sets the paths with local changes and the files a pull
+// would change, read for the snapshot.
+func changedAndIncoming(changed, incoming []string) func(*drift.Snapshot) {
+	return func(s *drift.Snapshot) {
+		s.Status.Tracked, s.Status.Changed = len(changed), changed
+		s.Incoming, s.IncomingRead = incoming, true
+	}
 }
 
 func TestPullBlockers(t *testing.T) {
@@ -82,7 +95,26 @@ func TestPullBlockers(t *testing.T) {
 			s.Status.Behind = 0
 		}), []string{"ahead of upstream", reasonNothing}},
 		{reasonNothing, with(func(s *drift.Snapshot) { s.Status.Behind = 0 }), []string{reasonNothing}},
-		{reasonLocalChanges, with(func(s *drift.Snapshot) { s.Status.Tracked = 1 }), []string{reasonLocalChanges}},
+		{"local changes before incoming files are read", with(func(s *drift.Snapshot) {
+			s.Status.Tracked, s.Status.Changed = 1, []string{pathLocalConfig}
+		}), []string{reasonLocalChanges}},
+		{"local changes outside incoming files", with(changedAndIncoming(
+			[]string{pathLocalConfig}, []string{pathHandler},
+		)), nil},
+		{"local change to an incoming file", with(changedAndIncoming(
+			[]string{pathLocalConfig, pathHandler}, []string{pathHandler, "api/routes.go"},
+		)), []string{reasonLocalChanges + " to " + pathHandler}},
+		{"local changes to several incoming files", with(changedAndIncoming(
+			[]string{"a.go", "b.go", "c.go"}, []string{"a.go", "b.go", "c.go"},
+		)), []string{"local changes to a.go and 2 more"}},
+		{"unmerged files", with(func(s *drift.Snapshot) {
+			changedAndIncoming([]string{pathLocalConfig}, []string{pathHandler})(s)
+			s.Status.Unmerged = 1
+		}), []string{reasonLocalChanges}},
+		{"nothing to pull with local changes", with(func(s *drift.Snapshot) {
+			changedAndIncoming([]string{pathLocalConfig}, nil)(s)
+			s.Status.Behind = 0
+		}), []string{reasonNothing}},
 		{"diverged first", with(func(s *drift.Snapshot) {
 			s.Status.Ahead = 1
 			s.Status.Behind = 2
@@ -174,6 +206,16 @@ func TestAttentionReasons(t *testing.T) {
 			want: []string{"fetch failed: broken", "fetch failed: upstream"},
 		},
 		{
+			name: "behind with local changes outside incoming files is quiet",
+			snap: with(changedAndIncoming([]string{pathLocalConfig}, []string{pathHandler})),
+			want: nil,
+		},
+		{
+			name: "behind with a local change to an incoming file",
+			snap: with(changedAndIncoming([]string{pathHandler}, []string{pathHandler})),
+			want: []string{reasonLocalChanges + " to " + pathHandler},
+		},
+		{
 			name: "ahead with local changes is quiet",
 			snap: with(func(s *drift.Snapshot) {
 				s.Status.Ahead, s.Status.Behind, s.Status.Tracked = 1, 0, 3
@@ -257,6 +299,9 @@ func TestCategoryOf(t *testing.T) {
 	}{
 		{"needs attention", with(func(s *drift.Snapshot) { s.Status.Ahead = 1 }), drift.CategoryNeedsAttention},
 		{"safe and behind", safeBehind(), drift.CategoryBehind},
+		{"behind with local changes a pull keeps", with(changedAndIncoming(
+			[]string{pathLocalConfig}, []string{pathHandler},
+		)), drift.CategoryBehind},
 		{"up to date", with(func(s *drift.Snapshot) { s.Status.Behind = 0 }), drift.CategoryUpToDate},
 		{"behind upstream and behind base", with(func(s *drift.Snapshot) {
 			s.Base = repo.Base{Ref: refOriginMain, Behind: 4}

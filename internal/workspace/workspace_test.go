@@ -241,6 +241,53 @@ func TestRefreshBadges(t *testing.T) {
 	}
 }
 
+// TestRefreshLocalChanges checks that a refresh reads the incoming files, so
+// that local changes stop a pull only when it would change their files.
+func TestRefreshLocalChanges(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		incoming     string
+		wantBlockers []string
+		wantCategory drift.Category
+	}{
+		{"outside incoming files", "go.sum", nil, drift.CategoryBehind},
+		{"to an incoming file", "README.md", []string{"local changes to README.md"}, drift.CategoryNeedsAttention},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			env := gittest.New(t)
+			clone, mate := pushedClone(t, env, "payments")
+			mate.Commit(tt.incoming, "remote\n", "teammate commit")
+			mate.Git("push", "--quiet", "origin", "main")
+			clone.Write("README.md", "edited\n")
+
+			w := newWorkspace(t, env)
+
+			s := w.Refresh(t.Context(), w.Groups()[0].CommonDir, true)[0]
+			if s.Err != nil {
+				t.Fatal(s.Err)
+			}
+
+			if !s.IncomingRead || !slices.Equal(s.Incoming, []string{tt.incoming}) {
+				t.Fatalf("Incoming = %q (read %v), want [%s]", s.Incoming, s.IncomingRead, tt.incoming)
+			}
+
+			if diff := cmp.Diff(tt.wantBlockers, drift.PullBlockers(s)); diff != "" {
+				t.Errorf("PullBlockers mismatch (-want +got):\n%s", diff)
+			}
+
+			if got := drift.CategoryOf(s); got != tt.wantCategory {
+				t.Errorf("CategoryOf = %v, want %v", got, tt.wantCategory)
+			}
+		})
+	}
+}
+
 func TestRefreshBadgeRules(t *testing.T) {
 	t.Parallel()
 

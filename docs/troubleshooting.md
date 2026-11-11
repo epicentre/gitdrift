@@ -77,7 +77,8 @@ Press `r` to refresh it.
 
 | Reason | Meaning | What to do |
 | --- | --- | --- |
-| `local changes` | Tracked files have uncommitted changes, staged or not. | Commit or stash them in git, then press `r`. |
+| `local changes to <file>` (also `and N more`) | The pull would change a file that has uncommitted changes, staged or not. Changes to files the pull does not touch do not stop it. | Commit or stash the changes to that file in git, then press `r`. |
+| `local changes` | The repository has unmerged files (a conflict, for example from `git stash pop`), or its incoming files have not been read yet. | Resolve the conflict in git, then press `r`. |
 | `diverged` | The branch has commits the upstream does not, and the upstream has commits the branch does not. | Merge or rebase in git; gitdrift only fast-forwards. |
 | `no upstream` | The branch does not track a remote branch. | `git branch --set-upstream-to=<remote>/<branch>`. |
 | `upstream gone` | The upstream branch was deleted on the remote. | Switch to another branch in git; the old one appears in the Branches tab. |

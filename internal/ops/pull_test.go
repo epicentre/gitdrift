@@ -11,7 +11,9 @@ import (
 
 	"github.com/epicentre/gitdrift/internal/drift"
 	"github.com/epicentre/gitdrift/internal/git"
+	"github.com/epicentre/gitdrift/internal/gittest"
 	"github.com/epicentre/gitdrift/internal/ops"
+	"github.com/epicentre/gitdrift/internal/repo"
 )
 
 func readFile(t *testing.T, f *fixture, name string) string {
@@ -128,7 +130,9 @@ func TestPullUntrackedConflict(t *testing.T) {
 	}
 }
 
-func TestPullSkipsLocalChanges(t *testing.T) {
+// TestPullKeepsLocalChangesOutsideIncomingFiles pulls over an edited file
+// that the incoming commits do not change; the edit stays as it was.
+func TestPullKeepsLocalChangesOutsideIncomingFiles(t *testing.T) {
 	t.Parallel()
 
 	f := newFixture(t)
@@ -136,13 +140,106 @@ func TestPullSkipsLocalChanges(t *testing.T) {
 	f.fetch()
 	f.repo.Write("README.md", "edited\n")
 
+	req := f.request()
+	out := ops.Pull(t.Context(), f.g, req)
+
+	if diff := cmp.Diff(ops.PullOutcome{Pulled: 1}, out); diff != "" {
+		t.Fatalf("outcome mismatch (-want +got):\n%s", diff)
+	}
+
+	if head := f.repo.Git("rev-parse", "HEAD"); head != req.UpstreamSHA {
+		t.Fatalf("HEAD = %s, want %s", head, req.UpstreamSHA)
+	}
+
+	if got := readFile(t, f, "README.md"); got != "edited\n" {
+		t.Fatalf("README.md = %q, the local edit was lost", got)
+	}
+
+	if got := readFile(t, f, "matea.txt"); got != "x" {
+		t.Fatalf("matea.txt = %q, want the incoming content", got)
+	}
+}
+
+// TestPullSkipsLocalChangesToIncomingFiles skips a pull whose commits change
+// a locally edited file, by editing it or by moving it away.
+func TestPullSkipsLocalChangesToIncomingFiles(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		upstream func(mate *gittest.Repo)
+	}{
+		{"edited upstream", func(mate *gittest.Repo) {
+			mate.Commit("README.md", "remote\n", "edit readme")
+		}},
+		{"renamed upstream", func(mate *gittest.Repo) {
+			mate.Git("mv", "README.md", "GUIDE.md")
+			mate.Git("commit", "--quiet", "-m", "rename readme")
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f := newFixture(t)
+			tt.upstream(f.mate)
+			f.mate.Git("push", "--quiet", "origin", "main")
+			f.fetch()
+			f.repo.Write("README.md", "edited\n")
+
+			before := f.repo.Git("rev-parse", "HEAD")
+			out := ops.Pull(t.Context(), f.g, f.request())
+
+			if diff := cmp.Diff(ops.PullOutcome{Skipped: "local changes to README.md"}, out); diff != "" {
+				t.Fatalf("outcome mismatch (-want +got):\n%s", diff)
+			}
+
+			if after := f.repo.Git("rev-parse", "HEAD"); after != before {
+				t.Fatalf("HEAD moved from %s to %s", before, after)
+			}
+
+			if got := readFile(t, f, "README.md"); got != "edited\n" {
+				t.Fatalf("README.md = %q, the local edit was lost", got)
+			}
+		})
+	}
+}
+
+// TestPullSkipsUnmergedFiles skips a pull while a conflict that left no
+// operation in progress, here from git stash pop, is unresolved.
+func TestPullSkipsUnmergedFiles(t *testing.T) {
+	t.Parallel()
+
+	f := newFixture(t)
+	f.teammatePush(1)
+	f.fetch()
+
+	// Stash an edit made on another commit, then pop it where README.md
+	// differs: the conflict stays in the index with no MERGE_HEAD.
+	f.repo.Git("switch", "--quiet", "-c", "other")
+	f.repo.Commit("README.md", "other\n", "other readme")
+	f.repo.Write("README.md", "stashed\n")
+	f.repo.Git("stash", "push", "--quiet")
+	f.repo.Git("switch", "--quiet", "main")
+
+	if _, err := f.repo.TryGit("stash", "pop", "--quiet"); err == nil {
+		t.Fatal("stash pop applied cleanly, want a conflict")
+	}
+
+	if st := f.status(); st.Unmerged != 1 || st.Operation != repo.OpNone {
+		t.Fatalf("status = %+v, want one unmerged entry and no operation", st)
+	}
+
+	before := f.repo.Git("rev-parse", "HEAD")
 	out := ops.Pull(t.Context(), f.g, f.request())
+
 	if diff := cmp.Diff(ops.PullOutcome{Skipped: "local changes"}, out); diff != "" {
 		t.Fatalf("outcome mismatch (-want +got):\n%s", diff)
 	}
 
-	if got := readFile(t, f, "README.md"); got != "edited\n" {
-		t.Fatalf("README.md = %q", got)
+	if after := f.repo.Git("rev-parse", "HEAD"); after != before {
+		t.Fatalf("HEAD moved from %s to %s", before, after)
 	}
 }
 
@@ -284,7 +381,9 @@ func TestPullIgnoresUserPullConfig(t *testing.T) {
 	}
 }
 
-func TestPullSkipsStagedOnlyChange(t *testing.T) {
+// TestPullKeepsStagedChange pulls over a staged file the incoming commits do
+// not change; it stays staged.
+func TestPullKeepsStagedChange(t *testing.T) {
 	t.Parallel()
 
 	f := newFixture(t)
@@ -293,14 +392,18 @@ func TestPullSkipsStagedOnlyChange(t *testing.T) {
 	f.repo.Write("staged.txt", "staged\n")
 	f.repo.Git("add", "--", "staged.txt")
 
-	before := f.repo.Git("rev-parse", "HEAD")
-	out := ops.Pull(t.Context(), f.g, f.request())
+	req := f.request()
+	out := ops.Pull(t.Context(), f.g, req)
 
-	if diff := cmp.Diff(ops.PullOutcome{Skipped: "local changes"}, out); diff != "" {
+	if diff := cmp.Diff(ops.PullOutcome{Pulled: 1}, out); diff != "" {
 		t.Fatalf("outcome mismatch (-want +got):\n%s", diff)
 	}
 
-	if after := f.repo.Git("rev-parse", "HEAD"); after != before {
-		t.Fatal("HEAD moved")
+	if head := f.repo.Git("rev-parse", "HEAD"); head != req.UpstreamSHA {
+		t.Fatalf("HEAD = %s, want %s", head, req.UpstreamSHA)
+	}
+
+	if staged := f.repo.Git("diff", "--cached", "--name-only"); staged != "staged.txt" {
+		t.Fatalf("staged files = %q, want staged.txt", staged)
 	}
 }

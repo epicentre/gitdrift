@@ -309,6 +309,9 @@ func (w *Workspace) readMember(ctx context.Context, snap *drift.Snapshot) error 
 	}
 
 	if snap.Status.Behind == 0 {
+		// Nothing is incoming, so a pull would change no file.
+		snap.IncomingRead = true
+
 		return nil
 	}
 
@@ -317,6 +320,7 @@ func (w *Workspace) readMember(ctx context.Context, snap *drift.Snapshot) error 
 		return err
 	}
 
+	snap.Incoming, snap.IncomingRead = files, true
 	snap.Badges = badge.Match(snap.BadgeRules, files)
 
 	return nil
