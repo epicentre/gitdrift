@@ -20,6 +20,8 @@ type Styles struct {
 	Selected lipgloss.Style
 	// Cursor marks the row under the cursor.
 	Cursor lipgloss.Style
+	// Spinner draws the spinner of a loading row and the header progress.
+	Spinner lipgloss.Style
 	// Badge colors the "what to do after pull" badges.
 	Badge lipgloss.Style
 	// Heading draws column titles.
@@ -59,6 +61,7 @@ func newStyles(isDark bool) Styles {
 		UpToDate:      lipgloss.NewStyle().Foreground(green),
 		Selected:      lipgloss.NewStyle().Foreground(magenta).Bold(true),
 		Cursor:        lipgloss.NewStyle().Foreground(accent).Bold(true),
+		Spinner:       lipgloss.NewStyle().Foreground(accent),
 		Badge:         lipgloss.NewStyle().Foreground(magenta),
 		Heading:       lipgloss.NewStyle().Foreground(muted).Bold(true),
 		TabActive:     lipgloss.NewStyle().Foreground(accent).Reverse(true).Bold(true),

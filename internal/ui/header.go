@@ -15,6 +15,7 @@ const (
 	// separator joins the parts of the header, status and footer lines.
 	separator = " · "
 	fetching  = "fetching…"
+	reading   = "reading…"
 	// fetchFailed starts drift's reason for a remote whose fetch failed.
 	fetchFailed = "fetch failed: "
 )
@@ -34,14 +35,18 @@ const (
 
 // headerLine renders "gitdrift  <root>" on the left and the workspace counts
 // on the right, filling width: total repositories, then from the snapshots
-// read so far those behind, needing attention and with work only here. The
-// root is cut first when space runs out.
-func headerLine(root string, snaps []drift.Snapshot, total, width int, st Styles) string {
+// read so far those behind, needing attention and with work only here, and
+// the loading progress while there is one. The root is cut first when space
+// runs out.
+func headerLine(root string, snaps []drift.Snapshot, total int, progress string, width int, st Styles) string {
 	if width <= 0 {
 		return ""
 	}
 
 	right := headerCounts(snaps, total)
+	if progress != "" {
+		right += separator + st.Spinner.Render(progress)
+	}
 	rightW := ansi.StringWidth(right)
 
 	if rightW >= width {
@@ -129,7 +134,7 @@ func statusLine(s drift.Snapshot, loaded bool, note token, width int, st Styles)
 
 	switch {
 	case !loaded:
-		parts = append(parts, st.Muted.Render(fetching))
+		parts = append(parts, st.Muted.Render(reading))
 	case s.Base.Ref != "":
 		parts = append(parts, fmt.Sprintf("base %s (%s)", sanitize(s.Base.Ref), s.Base.Source))
 	default:

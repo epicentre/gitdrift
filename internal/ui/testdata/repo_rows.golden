@@ -7,7 +7,7 @@ width 120
 |✓ auth                            main                                       ok                              ⌂1         |
 |✓ infra                           main                                       ok                                     ✂3  |
 |! settlement-reconciliation-ui    feature/merchant-onboarding-v2    *11      ↓2         base↓3    deps       ⌂4     ✂1  |
-|  ledger                                                            fetching…                                           |
+|  ledger                                                                                                                |
 width 44
 |  REPO             BRANCH     LOCAL UPSTREAM|
 |! billing          feature/v…       ok      |
@@ -17,4 +17,4 @@ width 44
 |✓ auth             main             ok      |
 |✓ infra            main             ok      |
 |! settlement-reco… feature/m… *11   ↓2      |
-|  ledger                      fetching…     |
+|  ledger                                    |

@@ -747,8 +747,8 @@ func TestRefreshKeys(t *testing.T) {
 	m, fake := loadedModel(t, fixtureSnapshots(fixedNow), 120, 40)
 
 	m, cmd := pressCmd(t, m, "r")
-	if row := rowOf(t, strings.Split(viewText(m), "\n"), "billing"); !strings.Contains(row, "fetching…") {
-		t.Errorf("billing row %q does not show fetching…", row)
+	if row := rowOf(t, strings.Split(viewText(m), "\n"), "billing"); !rowPattern(spinnerFrames[0], "billing", "feature/vat").MatchString(row) {
+		t.Errorf("billing row %q does not keep its tokens with the spinner", row)
 	}
 
 	if got := statusText(m); !strings.HasPrefix(got, "billing · fetching…") {

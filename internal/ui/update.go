@@ -25,6 +25,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd = tea.Batch(cmd, m.resetDetail())
 	}
 
+	if spin := m.startSpinner(); spin != nil {
+		cmd = tea.Batch(cmd, spin)
+	}
+
 	m.syncScroll()
 
 	return m, cmd
@@ -39,12 +43,23 @@ func (m *Model) apply(msg tea.Msg) (cmd tea.Cmd, refreshed bool) {
 	case tea.BackgroundColorMsg:
 		m.styles = newStyles(msg.IsDark())
 	case groupRefreshedMsg:
-		m.applySnapshots(msg.snaps)
 		cmd := m.refreshAnswered(msg.commonDir)
+		allRead := m.readAnswered(msg.commonDir)
+
+		// The rows hold still while other refreshes run, so that answers
+		// arriving one by one do not reorder them; they sort once nothing
+		// runs, and once every group was read before the fetches start.
+		m.applySnapshots(msg.snaps, allRead || len(m.refreshing) == 0)
+
+		if allRead {
+			cmd = tea.Batch(cmd, m.fetchAll())
+		}
 
 		id, ok := m.cursorID()
 
 		return cmd, ok && slices.ContainsFunc(msg.snaps, func(s drift.Snapshot) bool { return s.Loc.ID == id })
+	case spinTickMsg:
+		return m.turnSpinner(), false
 	case tea.KeyPressMsg:
 		return m.handleKey(msg), false
 	case tea.PasteMsg:
@@ -252,22 +267,22 @@ func (m *Model) visibleChanged(id repo.ID, ok bool) {
 	m.dropSelections()
 }
 
-// applySnapshots stores refreshed snapshots, re-sorts the rows and drops
-// the selections that no longer apply: repositories hidden now or not safe
-// to pull any more, and gone branches that are gone no more. Once the user
-// has moved the cursor it stays on its repository; until then it stays on
-// the first row, which ends up being the most urgent one. When the pull of
-// the cursor's repository lands, the cursor keeps its row instead (see
-// pullLanded). The rows are copied first: the previous model shares their
-// backing array.
-func (m *Model) applySnapshots(snaps []drift.Snapshot) {
+// applySnapshots stores refreshed snapshots in their rows, re-sorts the rows
+// when sort is set and drops the selections that no longer apply:
+// repositories hidden now or not safe to pull any more, and gone branches
+// that are gone no more. Once the user has moved the cursor it stays on its
+// repository; until then it stays on the first row, which ends up being the
+// most urgent one. When the pull of the cursor's repository lands and the
+// rows sort, the cursor keeps its row instead (see pullLanded). The rows are
+// copied first: the previous model shares their backing array.
+func (m *Model) applySnapshots(snaps []drift.Snapshot, sort bool) {
 	if len(snaps) == 0 {
 		return
 	}
 
 	cur, ok := m.cursorRow()
 	id := cur.snap.Loc.ID
-	ok = ok && m.cursorMoved && !m.pullLanded(cur, snaps)
+	ok = ok && m.cursorMoved && !(sort && m.pullLanded(cur, snaps))
 	m.rows = slices.Clone(m.rows)
 
 	for _, s := range snaps {
@@ -283,12 +298,29 @@ func (m *Model) applySnapshots(snaps []drift.Snapshot) {
 		m.rows[i] = r
 	}
 
-	sortRows(m.rows)
+	if sort {
+		sortRows(m.rows)
+	}
+
 	// ok holds only once the cursor has moved, so visibleChanged keeps
 	// cursorMoved as it is. It also drops the selected repositories that
 	// are hidden now or not safe to pull any more.
 	m.visibleChanged(id, ok)
 	m.pruneGoneSelections(snaps)
+}
+
+// readAnswered records an answer of group dir and reports whether it was the
+// last of the first reads: every group was read once, and the fetches are
+// to start.
+func (m *Model) readAnswered(dir string) bool {
+	if !m.unread[dir] {
+		return false
+	}
+
+	m.unread = writable(m.unread)
+	delete(m.unread, dir)
+
+	return len(m.unread) == 0
 }
 
 // pullLanded reports whether snaps show r up to date for the first time

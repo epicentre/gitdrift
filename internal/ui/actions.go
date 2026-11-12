@@ -275,8 +275,6 @@ func (m Model) rowNote(r row) token {
 		return token{}
 	case m.pulling[r.snap.Loc.ID]:
 		return token{text: pulling, style: m.styles.Muted}
-	case m.refreshing[r.snap.Loc.CommonDir]:
-		return token{text: fetching, style: m.styles.Muted}
 	}
 
 	res, ok := m.results[r.snap.Loc.ID]
@@ -291,10 +289,27 @@ func (m Model) rowNote(r row) token {
 	return token{text: res.text, style: m.styles.UpToDate}
 }
 
+// statusNote is the note the status line shows for row r: "fetching…"
+// while its group fetches and it is not being pulled, else the note of its
+// row. The row itself shows a fetch by its spinner.
+func (m Model) statusNote(r row) token {
+	if r.loaded && !m.pulling[r.snap.Loc.ID] && m.fetchPending(r.snap.Loc.CommonDir) {
+		return token{text: fetching, style: m.styles.Muted}
+	}
+
+	return m.rowNote(r)
+}
+
 // requestRefresh re-reads the group of commonDir. While a refresh of the
 // group is in flight it only remembers the request, which starts once that
-// one answers; a remembered request fetches when any request for it did.
+// one answers; a remembered request fetches when any request for it did. A
+// fetch joins the batch the header counts.
 func (m *Model) requestRefresh(commonDir string, fetch bool) tea.Cmd {
+	if fetch {
+		m.fetchBatch = writable(m.fetchBatch)
+		m.fetchBatch[commonDir] = true
+	}
+
 	if _, busy := m.refreshing[commonDir]; busy {
 		m.queued = writable(m.queued)
 		m.queued[commonDir] = m.queued[commonDir] || fetch
@@ -309,20 +324,39 @@ func (m *Model) requestRefresh(commonDir string, fetch bool) tea.Cmd {
 }
 
 // refreshAnswered ends the refresh of commonDir in flight and starts the one
-// requested meanwhile, if any.
+// requested meanwhile, if any. The fetch batch ends with its last fetch.
 func (m *Model) refreshAnswered(commonDir string) tea.Cmd {
 	m.refreshing = writable(m.refreshing)
 	delete(m.refreshing, commonDir)
 
-	fetch, ok := m.queued[commonDir]
-	if !ok {
-		return nil
+	var cmd tea.Cmd
+
+	if fetch, ok := m.queued[commonDir]; ok {
+		m.queued = writable(m.queued)
+		delete(m.queued, commonDir)
+
+		cmd = m.requestRefresh(commonDir, fetch)
 	}
 
-	m.queued = writable(m.queued)
-	delete(m.queued, commonDir)
+	if !m.fetchesRunning() {
+		m.fetchBatch = nil
+	}
 
-	return m.requestRefresh(commonDir, fetch)
+	return cmd
+}
+
+// fetchAll fetches every group once the first reads are done, except a
+// group that already fetches because the user asked meanwhile.
+func (m *Model) fetchAll() tea.Cmd {
+	cmds := make([]tea.Cmd, 0, len(m.groups))
+
+	for _, g := range m.groups {
+		if !m.fetchPending(g.CommonDir) {
+			cmds = append(cmds, m.requestRefresh(g.CommonDir, true))
+		}
+	}
+
+	return tea.Batch(cmds...)
 }
 
 // refreshCursor fetches and re-reads the group of the cursor's repository

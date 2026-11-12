@@ -90,6 +90,15 @@ type Model struct {
 	// flight to whether it fetches; queued holds the refresh requested
 	// meanwhile, which starts once that one answers.
 	refreshing, queued map[string]bool
+	// unread holds the groups whose first read has not answered yet; once
+	// the last one answers, every group fetches. fetchBatch holds the groups
+	// asked to fetch since the last time no fetch was running, which the
+	// header counts.
+	unread, fetchBatch map[string]bool
+	// spinning is set while spinner ticks come; spinFrame is the frame that
+	// loading rows show.
+	spinning  bool
+	spinFrame int
 
 	// notice replaces the status line until the next key press.
 	notice string
@@ -104,8 +113,8 @@ type Model struct {
 var _ tea.Model = Model{}
 
 // New creates the model for the repositories of b found under root. Every
-// repository starts as a "fetching…" row until its first refresh, which Init
-// starts, returns.
+// repository starts as a loading row until its first read, which Init
+// starts without a fetch, returns.
 func New(ctx context.Context, b Backend, root string) Model {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -127,9 +136,11 @@ func New(ctx context.Context, b Backend, root string) Model {
 	}
 
 	m.refreshing = make(map[string]bool, len(m.groups))
+	m.unread = make(map[string]bool, len(m.groups))
 
 	for _, g := range m.groups {
-		m.refreshing[g.CommonDir] = true
+		m.refreshing[g.CommonDir] = false
+		m.unread[g.CommonDir] = true
 
 		for _, loc := range g.Members {
 			m.rows = append(m.rows, row{snap: drift.Snapshot{Loc: loc}})
@@ -137,18 +148,24 @@ func New(ctx context.Context, b Backend, root string) Model {
 	}
 
 	sortRows(m.rows)
+	m.spinning = len(m.groups) > 0
 
 	return m
 }
 
-// Init asks for the terminal background and refreshes every group with a
-// fetch.
+// Init asks for the terminal background, turns the spinner and reads every
+// group without a fetch, so that the rows show and sort by what is known
+// locally; the fetches start once every group was read (see readAnswered).
 func (m Model) Init() tea.Cmd {
-	cmds := make([]tea.Cmd, 0, len(m.groups)+1)
+	cmds := make([]tea.Cmd, 0, len(m.groups)+2)
 	cmds = append(cmds, tea.RequestBackgroundColor)
 
+	if m.spinning {
+		cmds = append(cmds, spinTick())
+	}
+
 	for _, g := range m.groups {
-		cmds = append(cmds, refreshCmd(m.ctx, m.backend, g.CommonDir, true))
+		cmds = append(cmds, refreshCmd(m.ctx, m.backend, g.CommonDir, false))
 	}
 
 	return tea.Batch(cmds...)
@@ -173,7 +190,7 @@ func (m Model) render() string {
 	}
 
 	screen := strings.Join([]string{
-		headerLine(tildePath(m.root, m.home), m.loadedSnapshots(), len(m.rows), m.width, m.styles),
+		headerLine(tildePath(m.root, m.home), m.loadedSnapshots(), len(m.rows), m.progress(), m.width, m.styles),
 		m.body(lay),
 		m.status(),
 		footerLine(m.focus, m.zoom, folderTabs(m.rows) != nil, m.detail.tab, m.width, m.styles),
@@ -319,9 +336,9 @@ func (m Model) reposLines(r Rect) []string {
 
 		var line string
 		if m.tableMode() {
-			line = repoTableRow(rw.snap, rw.loaded, selected, note, m.folderTab, l, m.styles, now)
+			line = repoTableRow(rw.snap, rw.loaded, m.spinnerOf(rw), selected, note, m.folderTab, l, m.styles, now)
 		} else {
-			line = repoRow(rw.snap, rw.loaded, selected, note, m.folderTab, l, m.styles)
+			line = repoRow(rw.snap, rw.loaded, m.spinnerOf(rw), selected, note, m.folderTab, l, m.styles)
 		}
 
 		lines = append(lines, m.gutter(i == m.cursor)+line)
@@ -376,14 +393,14 @@ func (m Model) status() string {
 			return line
 		}
 
-		return line + separator + statusLine(r.snap, r.loaded, m.rowNote(r), room, m.styles)
+		return line + separator + statusLine(r.snap, r.loaded, m.statusNote(r), room, m.styles)
 	}
 
 	if !ok {
 		return ""
 	}
 
-	return statusLine(r.snap, r.loaded, m.rowNote(r), m.width, m.styles)
+	return statusLine(r.snap, r.loaded, m.statusNote(r), m.width, m.styles)
 }
 
 // rowsAt returns the rows at the given indexes. The Repos pane sizes its

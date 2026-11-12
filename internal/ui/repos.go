@@ -165,14 +165,15 @@ func compactCells(s drift.Snapshot, loaded bool, tab string) []string {
 
 // repoRow renders the compact row of one repository in the folder tab named
 // tab laid out by l: status marker, pull selection mark, then the columns. A
-// row not read yet shows "fetching…", and a row with a note shows the note,
-// across the status columns.
-func repoRow(s drift.Snapshot, loaded, selected bool, note token, tab string, l columnLayout, st Styles) string {
-	prefix := marker(s, loaded, st) + selectMark(selected, " ", st)
+// loading row shows the spinner frame spin in place of its marker and its
+// cells muted; a row not read yet has only its name and folder. A row with a
+// note shows the note across the status columns.
+func repoRow(s drift.Snapshot, loaded bool, spin string, selected bool, note token, tab string, l columnLayout, st Styles) string {
+	prefix := marker(s, loaded, spin, st) + selectMark(selected, " ", st)
 	cells := compactCells(s, loaded, tab)
 
-	if !loaded {
-		note = token{text: fetching, style: st.Muted}
+	if spin != "" {
+		l = l.in(st.Muted)
 	}
 
 	if note.text != "" {
@@ -261,17 +262,19 @@ func repoTableHeader(l columnLayout) string {
 }
 
 // repoTableRow renders one repository in the folder tab named tab as a zoom
-// table row laid out by l. A row not read yet shows "fetching…", and a row
-// with a note shows the note, in place of the columns after BRANCH.
+// table row laid out by l. A loading row shows the spinner frame spin in
+// place of its marker and its cells muted; a row not read yet has only its
+// name and folder. A row with a note shows the note in place of the columns
+// after BRANCH.
 func repoTableRow(
-	s drift.Snapshot, loaded, selected bool, note token, tab string, l columnLayout, st Styles, now time.Time,
+	s drift.Snapshot, loaded bool, spin string, selected bool, note token, tab string, l columnLayout, st Styles, now time.Time,
 ) string {
-	prefix := marker(s, loaded, st) + " "
+	prefix := marker(s, loaded, spin, st) + " "
 	cells := tableCells(s, loaded, tab, now)
 	cells[tableRepo] = tableRepoCell(s, selected, l.widths[tableRepo], st)
 
-	if !loaded {
-		note = token{text: fetching, style: st.Muted}
+	if spin != "" {
+		l = l.in(st.Muted)
 	}
 
 	if note.text != "" {
@@ -281,10 +284,14 @@ func repoTableRow(
 	return prefix + l.render(cells)
 }
 
-// marker is the status mark: ! needs attention, ↓ behind, ✓ up to date and
-// blank while the repository has not been read yet.
-func marker(s drift.Snapshot, loaded bool, st Styles) string {
-	if !loaded {
+// marker is the status mark: ! needs attention, ↓ behind, ✓ up to date, the
+// spinner frame spin while the repository loads, and blank when it was not
+// read yet without a spinner.
+func marker(s drift.Snapshot, loaded bool, spin string, st Styles) string {
+	switch {
+	case spin != "":
+		return st.Spinner.Render(spin)
+	case !loaded:
 		return " "
 	}
 

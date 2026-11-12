@@ -112,15 +112,32 @@ func newTestModel(t *testing.T, snaps []drift.Snapshot, width, height int) (Mode
 	return step(t, m, tea.WindowSizeMsg{Width: width, Height: height}), fake
 }
 
-// loadAll delivers every group's snapshots, as a finished refresh would.
-func loadAll(t *testing.T, m Model, fake *fakeBackend) Model {
+// readAll delivers every group's snapshots once, as the first reads at start
+// would; the last one starts the fetches.
+func readAll(t *testing.T, m Model, fake *fakeBackend) Model {
 	t.Helper()
 
 	for _, g := range fake.groups {
-		m = step(t, m, groupRefreshedMsg{commonDir: g.CommonDir, snaps: fake.snaps[g.CommonDir]})
+		m = answer(t, m, fake, g.CommonDir)
 	}
 
 	return m
+}
+
+// loadAll delivers every group's snapshots twice, as the first reads and
+// then the fetches at start would.
+func loadAll(t *testing.T, m Model, fake *fakeBackend) Model {
+	t.Helper()
+
+	return readAll(t, readAll(t, m, fake), fake)
+}
+
+// answer delivers the snapshots of group commonDir, as a finished refresh
+// of it would.
+func answer(t *testing.T, m Model, fake *fakeBackend, commonDir string) Model {
+	t.Helper()
+
+	return step(t, m, groupRefreshedMsg{commonDir: commonDir, snaps: fake.snaps[commonDir]})
 }
 
 func step(t *testing.T, m Model, msg tea.Msg) Model {
@@ -309,6 +326,159 @@ func loadedNavigationModel(t *testing.T) Model {
 	m, fake := newTestModel(t, navigationSnapshots(), 120, 40)
 
 	return loadAll(t, m, fake)
+}
+
+// refreshCalls lists the Refresh call the fake records for each of its
+// groups.
+func refreshCalls(fake *fakeBackend, fetch bool) []string {
+	out := make([]string, 0, len(fake.groups))
+	for _, g := range fake.groups {
+		out = append(out, fmt.Sprintf("Refresh %s fetch=%t", g.CommonDir, fetch))
+	}
+
+	return out
+}
+
+// headerText is the first line of the view.
+func headerText(m Model) string {
+	first, _, _ := strings.Cut(viewText(m), "\n")
+
+	return first
+}
+
+// TestStartupReadsBeforeFetching checks that the first refresh of every
+// group reads without fetching, and that the fetches start once every group
+// was read.
+func TestStartupReadsBeforeFetching(t *testing.T) {
+	t.Parallel()
+
+	m, fake := newTestModel(t, navigationSnapshots(), 120, 40)
+
+	reads := messagesOf[groupRefreshedMsg](runCmd(m.Init()))
+	assertCalls(t, fake, "Refresh", refreshCalls(fake, false))
+
+	var cmd tea.Cmd
+
+	for i, msg := range reads {
+		m, cmd = updateCmd(t, m, msg)
+
+		if i < len(reads)-1 && len(messagesOf[groupRefreshedMsg](runCmd(cmd))) > 0 {
+			t.Fatalf("a fetch started after %d of %d reads", i+1, len(reads))
+		}
+	}
+
+	runCmd(cmd)
+	assertCalls(t, fake, "Refresh", append(refreshCalls(fake, false), refreshCalls(fake, true)...))
+}
+
+// TestRowsKeepTheirPlaceWhileLoading checks that rows re-sort only once no
+// refresh is running: a fetch that makes auth need attention marks its row
+// but leaves it in place until the last fetch answers. The cursor stays on
+// the repository the user moved it to.
+func TestRowsKeepTheirPlaceWhileLoading(t *testing.T) {
+	t.Parallel()
+
+	m, fake := newTestModel(t, navigationSnapshots(), 120, 40)
+
+	m = readAll(t, m, fake)
+	if diff := cmp.Diff([]string{namePayments, nameAPIGateway, nameAuth}, rowNames(m)); diff != "" {
+		t.Fatalf("rows after the reads mismatch (-want +got):\n%s", diff)
+	}
+
+	m = press(t, m, keyDown)
+
+	diverged := fixtureAuth(fixedNow)
+	diverged.Status.Ahead, diverged.Status.Behind = 1, 2
+	fake.snaps[diverged.Loc.CommonDir] = []drift.Snapshot{diverged}
+
+	m = answer(t, m, fake, diverged.Loc.CommonDir)
+	if diff := cmp.Diff([]string{namePayments, nameAPIGateway, nameAuth}, rowNames(m)); diff != "" {
+		t.Errorf("rows while fetching mismatch (-want +got):\n%s", diff)
+	}
+
+	assertViewHasRow(t, m, "!", nameAuth)
+
+	for _, name := range []string{nameAPIGateway, namePayments} {
+		m = answer(t, m, fake, fixtureLoc(name).CommonDir)
+	}
+
+	if diff := cmp.Diff([]string{nameAuth, namePayments, nameAPIGateway}, rowNames(m)); diff != "" {
+		t.Errorf("rows after the fetches mismatch (-want +got):\n%s", diff)
+	}
+
+	if got := cursorName(m); got != nameAPIGateway {
+		t.Errorf("cursor = %q, want it on %s", got, nameAPIGateway)
+	}
+}
+
+// TestHeaderShowsLoadProgress checks the progress after the counts: the
+// repositories read so far, then those whose fetch is done, and nothing once
+// every fetch is done.
+func TestHeaderShowsLoadProgress(t *testing.T) {
+	t.Parallel()
+
+	m, fake := newTestModel(t, navigationSnapshots(), 120, 40)
+	dirs := make([]string, len(fake.groups))
+
+	for i, g := range fake.groups {
+		dirs[i] = g.CommonDir
+	}
+
+	steps := []struct {
+		answered int
+		want     string
+	}{
+		{0, "reading 0/3"},
+		{1, "reading 1/3"},
+		{3, "fetching 0/3"},
+		{4, "fetching 1/3"},
+		{6, ""},
+	}
+
+	answered := 0
+
+	for _, s := range steps {
+		for ; answered < s.answered; answered++ {
+			m = answer(t, m, fake, dirs[answered%len(dirs)])
+		}
+
+		header := headerText(m)
+
+		switch {
+		case s.want == "" && (strings.Contains(header, "reading") || strings.Contains(header, "fetching")):
+			t.Errorf("after %d answers header = %q, want no progress", s.answered, header)
+		case s.want != "" && !strings.HasSuffix(header, separator+s.want):
+			t.Errorf("after %d answers header = %q, want it to end with %q", s.answered, header, separator+s.want)
+		}
+	}
+}
+
+// TestSpinnerTurnsOnlyWhileLoading checks that the spinner ticks while rows
+// load, stops once nothing loads, and starts again with R.
+func TestSpinnerTurnsOnlyWhileLoading(t *testing.T) {
+	t.Parallel()
+
+	m, fake := newTestModel(t, navigationSnapshots(), 120, 40)
+	assertViewHasRow(t, m, spinnerFrames[0], nameAPIGateway)
+
+	m, cmd := updateCmd(t, m, spinTickMsg{})
+	if cmd == nil {
+		t.Fatal("the spinner stopped while rows load")
+	}
+
+	assertViewHasRow(t, m, spinnerFrames[1], nameAPIGateway)
+
+	m = loadAll(t, m, fake)
+
+	m, cmd = updateCmd(t, m, spinTickMsg{})
+	if cmd != nil {
+		t.Fatal("the spinner ticks with nothing loading")
+	}
+
+	_, cmd = pressCmd(t, m, "R")
+	if ticks := messagesOf[spinTickMsg](runCmd(cmd)); len(ticks) != 1 {
+		t.Errorf("R started %d spinner ticks, want 1", len(ticks))
+	}
 }
 
 func TestModelNavigation(t *testing.T) {
@@ -547,8 +717,9 @@ func TestHeaderCountsEveryRepo(t *testing.T) {
 	auth := fake.groups[0]
 	m = step(t, m, groupRefreshedMsg{commonDir: auth.CommonDir, snaps: fake.snaps[auth.CommonDir]})
 
+	// The counts take every repository; the progress follows them.
 	header, _, _ := strings.Cut(viewText(m), "\n")
-	if want := "3 repos · 0 behind · 0 need attention · 1 only here"; !strings.HasSuffix(header, want) {
+	if want := "3 repos · 0 behind · 0 need attention · 1 only here · reading 1/3"; !strings.HasSuffix(header, want) {
 		t.Errorf("header = %q, want suffix %q", header, want)
 	}
 }
@@ -580,6 +751,8 @@ func TestReposPaneScrolls(t *testing.T) {
 	}
 }
 
+// TestInitRefreshesAllGroups checks that Init reads every group, without a
+// fetch (see TestStartupReadsBeforeFetching).
 func TestInitRefreshesAllGroups(t *testing.T) {
 	t.Parallel()
 
@@ -596,7 +769,7 @@ func TestInitRefreshesAllGroups(t *testing.T) {
 	var want, wantDirs []string
 
 	for _, g := range fake.groups {
-		want = append(want, "Refresh "+g.CommonDir+" fetch=true")
+		want = append(want, "Refresh "+g.CommonDir+" fetch=false")
 		wantDirs = append(wantDirs, g.CommonDir)
 	}
 
@@ -958,7 +1131,7 @@ func TestHeaderLine(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := ansi.Strip(headerLine("~/code/work", tt.snaps, tt.total, tt.width, newStyles(true)))
+			got := ansi.Strip(headerLine("~/code/work", tt.snaps, tt.total, "", tt.width, newStyles(true)))
 			if !strings.HasSuffix(got, tt.right) {
 				t.Errorf("headerLine() = %q, want suffix %q", got, tt.right)
 			}
@@ -973,7 +1146,7 @@ func TestHeaderLine(t *testing.T) {
 		})
 	}
 
-	got := ansi.Strip(headerLine("~/code/work", nil, 0, 100, newStyles(true)))
+	got := ansi.Strip(headerLine("~/code/work", nil, 0, "", 100, newStyles(true)))
 	if !strings.HasPrefix(got, "gitdrift  ~/code/work ") {
 		t.Errorf("headerLine() = %q, want prefix %q", got, "gitdrift  ~/code/work ")
 	}
@@ -1035,7 +1208,7 @@ func TestStatusLine(t *testing.T) {
 		{"up to date", fixtureAuth(fixedNow), true, 0, "auth · base origin/main (auto)"},
 		{"no base", noBase, true, 0, "scratch · no base"},
 		{"sanitized", hostile, true, 0, "auth · base origin/main (auto)"},
-		{"unloaded", drift.Snapshot{Loc: fixtureLoc(namePayments)}, false, 0, "payments · fetching…"},
+		{"unloaded", drift.Snapshot{Loc: fixtureLoc(namePayments)}, false, 0, "payments · reading…"},
 		{
 			"fetch error messages", fetchFailed, true, 240,
 			"auth · base origin/main (auto) · fetch failed: backup (fatal: 'backup' does not appear to be a git repository) · " +

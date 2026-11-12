@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 	"time"
@@ -56,6 +57,33 @@ func waitForScreen(t *testing.T, tm *teatest.TestModel, want string) {
 	}, teatest.WithDuration(e2eWait), teatest.WithCheckInterval(e2eCheck))
 }
 
+// waitForLoaded waits until the last full repaint of the screen shows want
+// in its header and no progress: every read and fetch is done. Other frames
+// redraw only the cells that changed, so their text says nothing whole; each
+// check that fails asks for a full repaint, which starts by erasing the
+// screen, and the next check reads its first line.
+func waitForLoaded(t *testing.T, tm *teatest.TestModel, want string) {
+	t.Helper()
+
+	const eraseScreen = "\x1b[2J"
+
+	teatest.WaitFor(t, tm.Output(), func(out []byte) bool {
+		if i := bytes.LastIndex(out, []byte(eraseScreen)); i >= 0 {
+			frame := ansi.Strip(string(out[i+len(eraseScreen):]))
+
+			header, _, whole := strings.Cut(frame, "\n")
+			if whole && strings.Contains(header, want) &&
+				!strings.Contains(header, "reading") && !strings.Contains(header, "fetching") {
+				return true
+			}
+		}
+
+		tm.Send(tea.ClearScreen())
+
+		return false
+	}, teatest.WithDuration(e2eWait), teatest.WithCheckInterval(e2eCheck))
+}
+
 // TestEndToEndPull pulls every safe repository with P: api is clean, web has
 // a local change to a file the pull does not touch and keeps it, and docs
 // has a local change to the incoming file and is left alone.
@@ -85,7 +113,8 @@ func TestEndToEndPull(t *testing.T) {
 
 	tm := teatest.NewTestModel(t, ui.New(t.Context(), ws, root), teatest.WithInitialTermSize(120, 40))
 
-	waitForScreen(t, tm, "3 repos · 3 behind · 1 need attention")
+	// P offers only repositories whose fetch is done.
+	waitForLoaded(t, tm, "3 repos · 3 behind · 1 need attention")
 	tm.Type("P")
 	tm.Type("y")
 	// Each pull re-reads its repository; only docs is still behind.

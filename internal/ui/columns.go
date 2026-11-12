@@ -105,6 +105,18 @@ type columnLayout struct {
 	gaps   []int
 	x      []int
 	widths []int
+	// cellStyle, when restyled is set, draws every cell in place of the
+	// styles of the columns (see in).
+	cellStyle lipgloss.Style
+	restyled  bool
+}
+
+// in returns the layout drawing every cell in style instead of its column's
+// style; values laid across columns keep their own style.
+func (l columnLayout) in(style lipgloss.Style) columnLayout {
+	l.cellStyle, l.restyled = style, true
+
+	return l
 }
 
 // layoutColumns fits cols in a row of width cells.
@@ -325,6 +337,10 @@ func (l columnLayout) renderSpan(cells []string, from, to int, value token, a al
 
 		c := &l.cols[i]
 		cell := token{style: c.style}
+
+		if l.restyled {
+			cell.style = l.cellStyle
+		}
 
 		if i < len(cells) {
 			cell.text = cells[i]

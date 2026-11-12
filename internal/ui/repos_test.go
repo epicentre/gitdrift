@@ -93,7 +93,7 @@ func loadedRows(snaps ...drift.Snapshot) []row {
 func compactRow(s drift.Snapshot, loaded, selected bool, width int) string {
 	st := newStyles(true)
 
-	return repoRow(s, loaded, selected, token{}, "", newCompactLayout([]row{{snap: s, loaded: loaded}}, "", width, st), st)
+	return repoRow(s, loaded, "", selected, token{}, "", newCompactLayout([]row{{snap: s, loaded: loaded}}, "", width, st), st)
 }
 
 // compactTokens lists by kind the status tokens of the fixture rows and of
@@ -181,7 +181,7 @@ func TestRepoRows(t *testing.T) {
 		b.WriteString(framed(repoHeader(l, st)))
 
 		for _, r := range rows {
-			line := repoRow(r.snap, r.loaded, false, token{}, "", l, st)
+			line := repoRow(r.snap, r.loaded, "", false, token{}, "", l, st)
 			if got := ansi.StringWidth(line); got != width {
 				t.Errorf("repoRow(%s) at %d width = %d, want %d", r.snap.Loc.Name, width, got, width)
 			}
@@ -206,7 +206,7 @@ func TestRepoRows(t *testing.T) {
 		"! settlement-reco… feature/m… *11   ↓2      ",
 		"! payments         feature/c… *2    ↑3↓12   ",
 		"! billing          feature/v…       ok      ",
-		"  ledger                      fetching…     ",
+		"  ledger" + strings.Repeat(" ", 36),
 	} {
 		if !slices.Contains(lines[44], want) {
 			t.Errorf("rows at 44 cells lack %q:\n%s", want, strings.Join(lines[44], "\n"))
@@ -217,6 +217,52 @@ func TestRepoRows(t *testing.T) {
 		if narrow := strings.Join(lines[44], "\n"); strings.Contains(narrow, dropped) {
 			t.Errorf("rows at 44 cells still show %q:\n%s", dropped, narrow)
 		}
+	}
+}
+
+// TestBusyRowShowsSpinnerAndMutedTokens checks a row whose fetch runs, in the
+// compact rows and the zoom table: the spinner takes the place of its
+// marker, and its tokens stay, drawn muted.
+func TestBusyRowShowsSpinnerAndMutedTokens(t *testing.T) {
+	t.Parallel()
+
+	st := newStyles(true)
+	s := behindMain(nameAPIGateway, 12, []string{badgeDeps}, fixedNow)
+	rows := []row{{snap: s, loaded: true, category: drift.CategoryOf(s)}}
+
+	compact := newCompactLayout(rows, "", 80, st)
+	table := newTableLayout(rows, "", 120, fixedNow)
+
+	tests := []struct {
+		name       string
+		idle, busy string
+	}{
+		{
+			"compact",
+			repoRow(s, true, "", false, token{}, "", compact, st),
+			repoRow(s, true, spinnerFrames[1], false, token{}, "", compact, st),
+		},
+		{
+			"zoom table",
+			repoTableRow(s, true, "", false, token{}, "", table, st, fixedNow),
+			repoTableRow(s, true, spinnerFrames[1], false, token{}, "", table, st, fixedNow),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			idle, busy := []rune(ansi.Strip(tt.idle)), []rune(ansi.Strip(tt.busy))
+			if want := spinnerFrames[1] + string(idle[1:]); string(busy) != want {
+				t.Errorf("busy row = %q, want %q", string(busy), want)
+			}
+
+			if muted := st.Muted.Render("↓12"); !strings.Contains(tt.busy, muted) || strings.Contains(tt.idle, muted) {
+				t.Errorf("↓12 muted in the busy row %v and in the idle one %v, want only in the busy one",
+					strings.Contains(tt.busy, muted), strings.Contains(tt.idle, muted))
+			}
+		})
 	}
 }
 
@@ -346,8 +392,8 @@ func TestNoRemoteRows(t *testing.T) {
 	payments := fixturePayments(fixedNow)
 	tl := newTableLayout(loadedRows(s, payments), "", 120, fixedNow)
 	header := ansi.Strip(repoTableHeader(tl))
-	row := ansi.Strip(repoTableRow(s, true, false, token{}, "", tl, st, fixedNow))
-	other := ansi.Strip(repoTableRow(payments, true, false, token{}, "", tl, st, fixedNow))
+	row := ansi.Strip(repoTableRow(s, true, "", false, token{}, "", tl, st, fixedNow))
+	other := ansi.Strip(repoTableRow(payments, true, "", false, token{}, "", tl, st, fixedNow))
 
 	for _, c := range []struct{ line, title, want string }{
 		{row, titleUpstream, "no remote"},
@@ -447,7 +493,7 @@ func TestRepoTable(t *testing.T) {
 	b.WriteString(framed(repoTableHeader(tl)))
 
 	for _, r := range rows {
-		line := repoTableRow(r.snap, r.loaded, false, token{}, "", tl, st, fixedNow)
+		line := repoTableRow(r.snap, r.loaded, "", false, token{}, "", tl, st, fixedNow)
 		if got := ansi.StringWidth(line); got != width {
 			t.Errorf("repoTableRow(%s) width = %d, want %d", r.snap.Loc.Name, got, width)
 		}
@@ -549,8 +595,8 @@ func TestRepoTableTruncatesOnlyWhenNarrow(t *testing.T) {
 
 			tl := newTableLayout(loadedRows(snaps...), "", tt.width, fixedNow)
 			got := []string{
-				ansi.Strip(repoTableRow(notifications, true, false, token{}, "", tl, newStyles(true), fixedNow)),
-				ansi.Strip(repoTableRow(payments, true, false, token{}, "", tl, newStyles(true), fixedNow)),
+				ansi.Strip(repoTableRow(notifications, true, "", false, token{}, "", tl, newStyles(true), fixedNow)),
+				ansi.Strip(repoTableRow(payments, true, "", false, token{}, "", tl, newStyles(true), fixedNow)),
 			}
 
 			for i, w := range tt.want {
@@ -571,7 +617,7 @@ func TestRepoTableSelectedAndEmptyCells(t *testing.T) {
 
 	tl := newTableLayout(loadedRows(s), "", 100, fixedNow)
 	header := ansi.Strip(repoTableHeader(tl))
-	got := ansi.Strip(repoTableRow(s, true, true, token{}, "", tl, newStyles(true), fixedNow))
+	got := ansi.Strip(repoTableRow(s, true, "", true, token{}, "", tl, newStyles(true), fixedNow))
 
 	for _, c := range []struct{ title, want string }{
 		{titleRepo, "api-gateway ●"},
@@ -615,8 +661,8 @@ func TestRepoRowSanitizesBranch(t *testing.T) {
 			tt.mut(&s)
 
 			rows := map[string]string{
-				"compact": repoRow(s, true, false, token{}, "", newCompactLayout(loadedRows(s), "", 60, Styles{}), Styles{}),
-				"table":   repoTableRow(s, true, false, token{}, "", newTableLayout(loadedRows(s), "", 120, fixedNow), Styles{}, fixedNow),
+				"compact": repoRow(s, true, "", false, token{}, "", newCompactLayout(loadedRows(s), "", 60, Styles{}), Styles{}),
+				"table":   repoTableRow(s, true, "", false, token{}, "", newTableLayout(loadedRows(s), "", 120, fixedNow), Styles{}, fixedNow),
 			}
 
 			for kind, row := range rows {
@@ -661,7 +707,7 @@ func TestCompactHeaderWidths(t *testing.T) {
 	s := tracking(nameWeb, branchMain, fixedNow)
 	l := newCompactLayout(loadedRows(s), "", 22, st)
 
-	got := []string{ansi.Strip(repoHeader(l, st)), ansi.Strip(repoRow(s, true, false, token{}, "", l, st))}
+	got := []string{ansi.Strip(repoHeader(l, st)), ansi.Strip(repoRow(s, true, "", false, token{}, "", l, st))}
 	want := []string{"  REPO BRANCH UPSTREAM", "✓ web  main   ok      "}
 
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -910,7 +956,7 @@ func compactLines(t *testing.T, rows []row, width int) (header string, lines []s
 	l := newCompactLayout(rows, "", width, st)
 
 	for _, r := range rows {
-		line := repoRow(r.snap, r.loaded, false, token{}, "", l, st)
+		line := repoRow(r.snap, r.loaded, "", false, token{}, "", l, st)
 		if got := ansi.StringWidth(line); got != width {
 			t.Errorf("repoRow(%s) at %d width = %d, want %d", r.snap.Loc.Name, width, got, width)
 		}
@@ -1092,7 +1138,7 @@ func TestRepoTableNestedFolder(t *testing.T) {
 	b.WriteString(framed(repoTableHeader(tl)))
 
 	for _, r := range rows {
-		line := repoTableRow(r.snap, r.loaded, false, token{}, "", tl, st, fixedNow)
+		line := repoTableRow(r.snap, r.loaded, "", false, token{}, "", tl, st, fixedNow)
 		if got := ansi.StringWidth(line); got != width {
 			t.Errorf("repoTableRow(%s) width = %d, want %d", r.snap.Loc.Name, got, width)
 		}
