@@ -27,13 +27,28 @@ rebase. The only things it ever writes are listed under [Safety](#safety).
 
 Requirements: git 2.30 or newer, macOS or Linux.
 
+Download the latest release for your system and put `gdrift` on your `PATH`:
+
+```sh
+os=$(uname -s | tr '[:upper:]' '[:lower:]')
+arch=$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
+curl -fsSL "https://github.com/epicentre/gitdrift/releases/latest/download/gitdrift_${os}_${arch}.tar.gz" | tar -xzf - gdrift
+sudo mkdir -p /usr/local/bin && sudo mv gdrift /usr/local/bin/
+gdrift --version
+```
+
+Run the same commands again to update. Each
+[GitHub release](https://github.com/epicentre/gitdrift/releases) has one
+archive per system (`gitdrift_darwin_arm64.tar.gz`,
+`gitdrift_darwin_amd64.tar.gz`, `gitdrift_linux_amd64.tar.gz`,
+`gitdrift_linux_arm64.tar.gz`), together with `checksums.txt` and build
+provenance attestations.
+
+With Go:
+
 ```
 go install github.com/epicentre/gitdrift/cmd/gdrift@latest
 ```
-
-Release binaries for macOS and Linux (amd64 and arm64) are attached to each
-GitHub release, together with `checksums.txt` and build provenance
-attestations.
 
 To build from a checkout:
 
