@@ -142,11 +142,20 @@ and a few tokens:
 `no remote`, `no upstream` and `gone` replace the upstream token when they
 apply; for a repository without any remote, `no remote` also stands in for
 `⌂N` (all of its work is only here), and the zoom table's HERE column says
-`no remote`. A row that is busy shows `fetching…` or `pulling…`, and a pull
-result or refusal reason takes the place of the tokens. When a pull brings
-the repository under the cursor up to date, its row moves down to the
-up-to-date rows and the cursor stays where it was, on the repository that
-moved up into its place, ready for the next pull.
+`no remote`. A row that is busy shows `pulling…`, and a pull result or
+refusal reason takes the place of the tokens. When a pull brings the
+repository under the cursor up to date, its row moves down to the up-to-date
+rows and the cursor stays where it was, on the repository that moved up into
+its place, ready for the next pull.
+
+At start gdrift first reads every repository without the network, so the
+list shows up sorted by what is known locally, and then fetches them all. A
+row that is still loading shows a spinner in place of its marker and its
+tokens muted, and the header counts the progress (`reading 3/40`, then
+`fetching 12/40`). While repositories load, a row that changes stays where it
+is, with its new marker and tokens; the rows re-sort once everything has
+answered, also after `R`. A repository can be pulled as soon as its own fetch
+is done.
 
 The zoom table (`z`) spells the same information out in columns: REPO, FOLDER
 (only when a row has one, and never shortened), BRANCH, LOCAL, UPSTREAM,

@@ -47,6 +47,7 @@ func headerLine(root string, snaps []drift.Snapshot, total int, progress string,
 	if progress != "" {
 		right += separator + st.Spinner.Render(progress)
 	}
+
 	rightW := ansi.StringWidth(right)
 
 	if rightW >= width {

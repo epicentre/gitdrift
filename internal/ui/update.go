@@ -282,7 +282,8 @@ func (m *Model) applySnapshots(snaps []drift.Snapshot, sort bool) {
 
 	cur, ok := m.cursorRow()
 	id := cur.snap.Loc.ID
-	ok = ok && m.cursorMoved && !(sort && m.pullLanded(cur, snaps))
+	landed := sort && m.pullLanded(cur, snaps)
+	ok = ok && m.cursorMoved && !landed
 	m.rows = slices.Clone(m.rows)
 
 	for _, s := range snaps {

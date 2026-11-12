@@ -70,7 +70,9 @@ Only `internal/git` starts processes.
 repositories (the root and the directories below it down to `--depth`,
 default 5; see decision 16), groups them, and starts the UI. The UI shows a
 FOLDER column and folder tabs when repositories sit in folders
-(decision 17). The UI asks the workspace to refresh every group with a fetch.
+(decision 17). The UI asks the workspace to read every group without a
+fetch, sorts the rows once all have answered, then refreshes every group with
+a fetch; rows re-sort only when no refresh is running (decision 22).
 
 **Refresh.** For one group: take a concurrency slot (8 by default), take the
 group lock, fetch every remote (each refused or failed remote is recorded),
@@ -182,8 +184,9 @@ one, and the old one's status says so.
 | [17](0017-folders-in-the-repos-pane.md) | Show folders in the Repos pane: column, tabs and a filter | Accepted (tab keys superseded by 18, tab placement by 19) |
 | [18](0018-switch-tabs-with-the-arrow-keys.md) | Switch tabs with the arrow keys | Accepted |
 | [19](0019-repos-pane-on-top.md) | Put the Repos pane on top at full width | Accepted |
-| [20](0020-keep-the-cursor-row-when-a-pull-lands.md) | Keep the cursor's row when a pull lands | Accepted |
+| [20](0020-keep-the-cursor-row-when-a-pull-lands.md) | Keep the cursor's row when a pull lands | Accepted (re-sort timing refined by 22) |
 | [21](0021-pull-over-unrelated-local-changes.md) | Pull over local changes the pull does not touch | Accepted |
+| [22](0022-read-first-and-hold-rows-while-fetching.md) | Read every repository first and hold the rows while they fetch | Accepted |
 
 ### Adding a decision
 

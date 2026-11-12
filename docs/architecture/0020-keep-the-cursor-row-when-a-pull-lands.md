@@ -1,6 +1,7 @@
 # 20. Keep the cursor's row when a pull lands
 
-- Status: Accepted
+- Status: Accepted. While other refreshes run the rows hold their places
+  and do not re-sort; see [22](0022-read-first-and-hold-rows-while-fetching.md).
 - Date: 2026-11-04
 
 ## Context

@@ -68,8 +68,8 @@ func waitForLoaded(t *testing.T, tm *teatest.TestModel, want string) {
 	const eraseScreen = "\x1b[2J"
 
 	teatest.WaitFor(t, tm.Output(), func(out []byte) bool {
-		if i := bytes.LastIndex(out, []byte(eraseScreen)); i >= 0 {
-			frame := ansi.Strip(string(out[i+len(eraseScreen):]))
+		if _, last, ok := bytes.CutLast(out, []byte(eraseScreen)); ok {
+			frame := ansi.Strip(string(last))
 
 			header, _, whole := strings.Cut(frame, "\n")
 			if whole && strings.Contains(header, want) &&

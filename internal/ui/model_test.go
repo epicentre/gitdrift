@@ -355,6 +355,7 @@ func TestStartupReadsBeforeFetching(t *testing.T) {
 	m, fake := newTestModel(t, navigationSnapshots(), 120, 40)
 
 	reads := messagesOf[groupRefreshedMsg](runCmd(m.Init()))
+
 	assertCalls(t, fake, "Refresh", refreshCalls(fake, false))
 
 	var cmd tea.Cmd
