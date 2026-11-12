@@ -27,7 +27,8 @@ rebase. The only things it ever writes are listed under [Safety](#safety).
 
 Requirements: git 2.30 or newer, macOS or Linux.
 
-Download the latest release for your system and put `gdrift` on your `PATH`:
+Run these commands in a terminal. They download the latest release for your
+system and put `gdrift` on your `PATH`; nothing else is needed:
 
 ```sh
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -44,13 +45,16 @@ archive per system (`gitdrift_darwin_arm64.tar.gz`,
 `gitdrift_linux_arm64.tar.gz`), together with `checksums.txt` and build
 provenance attestations.
 
-With Go:
+### Installing from source
+
+For Go developers only, as an alternative to the commands above. Install with
+Go:
 
 ```
 go install github.com/epicentre/gitdrift/cmd/gdrift@latest
 ```
 
-To build from a checkout:
+Or build from a checkout:
 
 ```
 make install     # go install with version information
