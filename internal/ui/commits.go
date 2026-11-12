@@ -80,7 +80,8 @@ func (m Model) commitsLines(r Rect) []string {
 	lines := make([]string, 0, end-start+1)
 
 	for i := start; i < end; i++ {
-		lines = append(lines, cursorGutter(i == c.cursor, m.styles)+entry(i))
+		isCursor := i == c.cursor
+		lines = append(lines, m.paneRow(PaneCommits, isCursor, cursorGutter(isCursor, m.styles)+entry(i), r.W-2))
 	}
 
 	return appendMore(lines, more, m.styles)
@@ -218,6 +219,13 @@ func cursorGutter(isCursor bool, st Styles) string {
 	}
 
 	return " "
+}
+
+// cursorBar draws line, the row under the cursor of the focused pane with its
+// gutter, as a bar in the cursor line style across the pane, width cells
+// wide. The bar takes the place of the row's own styling.
+func cursorBar(line string, width int, st Styles) string {
+	return st.CursorLine.Render(fit(ansi.Strip(line), width))
 }
 
 // appendMore ends a list with "… N more" when entries remain below it.

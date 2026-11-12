@@ -20,6 +20,10 @@ type Styles struct {
 	Selected lipgloss.Style
 	// Cursor marks the row under the cursor.
 	Cursor lipgloss.Style
+	// CursorLine draws the row under the cursor of the focused pane as a
+	// bar across the pane; reverse video keeps it apart where colors are
+	// turned off.
+	CursorLine lipgloss.Style
 	// Spinner draws the spinner of a loading row and the header progress.
 	Spinner lipgloss.Style
 	// Badge colors the "what to do after pull" badges.
@@ -61,6 +65,7 @@ func newStyles(isDark bool) Styles {
 		UpToDate:      lipgloss.NewStyle().Foreground(green),
 		Selected:      lipgloss.NewStyle().Foreground(magenta).Bold(true),
 		Cursor:        lipgloss.NewStyle().Foreground(accent).Bold(true),
+		CursorLine:    lipgloss.NewStyle().Foreground(accent).Reverse(true).Bold(true),
 		Spinner:       lipgloss.NewStyle().Foreground(accent),
 		Badge:         lipgloss.NewStyle().Foreground(magenta),
 		Heading:       lipgloss.NewStyle().Foreground(muted).Bold(true),

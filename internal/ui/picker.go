@@ -92,7 +92,9 @@ func (p basePicker) refiltered() basePicker {
 // lines.
 func pickerRows(height int) int { return max(height-pickerHeadRows, 1) }
 
-func (p basePicker) view(env dialogEnv, _, height int) dialogView {
+// view lays the picker out. The entry under the cursor is the cursor bar
+// across the window (see cursorBar), as in the focused pane.
+func (p basePicker) view(env dialogEnv, width, height int) dialogView {
 	current := "current: none"
 	if p.current.Ref != "" {
 		current = "current: " + sanitize(p.current.Ref) + " (" + string(p.current.Source) + ")"
@@ -101,8 +103,13 @@ func (p basePicker) view(env dialogEnv, _, height int) dialogView {
 	body := []string{current, "filter: " + sanitize(p.filter), ""}
 	entries := p.entries()
 	start, end := scrollWindow(len(entries), p.cursor, p.top, pickerRows(height))
+	cursorLine := -1
 
 	for i := start; i < end; i++ {
+		if i == p.cursor {
+			cursorLine = len(body)
+		}
+
 		body = append(body, entries[i].line(i == p.cursor, env.st))
 	}
 
@@ -119,7 +126,15 @@ func (p basePicker) view(env dialogEnv, _, height int) dialogView {
 		body = append(body, env.st.Muted.Render(noMatches))
 	}
 
-	return dialogView{title: "Base for " + repoLabel(p.loc), body: body, footer: footerPicker, width: p.width()}
+	v := dialogView{title: "Base for " + repoLabel(p.loc), body: body, footer: footerPicker, width: p.width()}
+
+	// The bar spans the window as frame lays it out: as wide as the widest
+	// line, but never wider than the screen allows.
+	if cursorLine >= 0 {
+		v.body[cursorLine] = cursorBar(v.body[cursorLine], min(v.innerWidth(), width), env.st)
+	}
+
+	return v
 }
 
 // width fits every entry whatever the filter: the widest name after the

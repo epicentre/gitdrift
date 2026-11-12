@@ -341,7 +341,7 @@ func (m Model) reposLines(r Rect) []string {
 			line = repoRow(rw.snap, rw.loaded, m.spinnerOf(rw), selected, note, m.folderTab, l, m.styles)
 		}
 
-		lines = append(lines, m.gutter(i == m.cursor)+line)
+		lines = append(lines, m.paneRow(PaneRepos, i == m.cursor, m.gutter(i == m.cursor)+line, inner))
 	}
 
 	if more := len(rows) - end; more > 0 {
@@ -364,6 +364,19 @@ func (m Model) gutter(isCursor bool) string {
 	default:
 		return " "
 	}
+}
+
+// paneRow returns line, a row of a list in pane p with its cursor gutter, as
+// the pane draws it width cells wide: the row under the cursor of the
+// focused pane as the cursor bar (see cursorBar), any other row as it is.
+// While a dialog is open it takes the keys, and only the dialog may show a
+// bar.
+func (m Model) paneRow(p Pane, isCursor bool, line string, width int) string {
+	if !isCursor || m.focus != p || m.dialog != nil {
+		return line
+	}
+
+	return cursorBar(line, width, m.styles)
 }
 
 // status renders the status line: the filter while it is typed, followed by

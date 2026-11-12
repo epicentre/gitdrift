@@ -3,9 +3,11 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/epicentre/gitdrift/internal/drift"
@@ -327,5 +329,49 @@ func TestBasePickerScrolls(t *testing.T) {
 
 	if got := viewText(m); strings.Contains(got, "origin/topic-00") {
 		t.Errorf("the picker did not scroll:\n%s", got)
+	}
+}
+
+// TestBasePickerCursorBar draws the entry under the picker's cursor as the
+// cursor bar across the window, as the focused pane draws its cursor row.
+func TestBasePickerCursorBar(t *testing.T) {
+	t.Parallel()
+	skipEastAsianWidths(t)
+
+	m, fake := newTestModel(t, fixtureSnapshots(fixedNow), 120, 40)
+	fake.setRemoteBranches([]string{refOriginDevelop, refOriginMain, "origin/release-2026.10"})
+	m = openPicker(t, loadAll(t, m, fake))
+
+	// The dialog is drawn in the thick border of the focused window, one
+	// cell of padding inside it.
+	entry := regexp.MustCompile("┃ (" + cursorMark + "[^┃]*) ┃")
+
+	for _, keys := range [][]string{nil, {keyUp}, {keyUp, keyUp}} {
+		m := press(t, m, keys...)
+
+		f, ok := m.frame()
+		if !ok {
+			t.Fatalf("after %q no dialog is laid out", keys)
+		}
+
+		match := entry.FindStringSubmatch(viewText(m))
+		if match == nil {
+			t.Fatalf("after %q the picker shows no cursor entry:\n%s", keys, viewText(m))
+		}
+
+		row := match[1]
+		if w := ansi.StringWidth(row); w != f.inner {
+			t.Errorf("after %q the cursor entry %q is %d cells wide, want the window's %d", keys, row, w, f.inner)
+		}
+
+		if !strings.Contains(m.View().Content, m.styles.CursorLine.Render(row)) {
+			t.Errorf("after %q the cursor entry %q is not drawn as the cursor bar", keys, row)
+		}
+	}
+
+	// The picker takes the keys, so the focused pane under it shows only
+	// the gutter mark: one bar on screen, where the arrows move.
+	if row := cursorRowIn(t, m, PaneRepos); strings.Contains(m.View().Content, m.styles.CursorLine.Render(row)) {
+		t.Errorf("the Repos cursor row %q is drawn as the cursor bar under the picker", row)
 	}
 }

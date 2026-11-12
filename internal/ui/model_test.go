@@ -1313,3 +1313,64 @@ func TestKeyMapHelp(t *testing.T) {
 		t.Errorf("bound keys mismatch (-want +got):\n%s", diff)
 	}
 }
+
+// TestCursorRowReversedInFocusedPane checks that the row under the cursor of
+// the focused pane is drawn as a bar in the cursor line style across the
+// pane, so that it stands out while the arrows move through a list, and that
+// the cursor rows of the other panes keep only their gutter mark.
+func TestCursorRowReversedInFocusedPane(t *testing.T) {
+	t.Parallel()
+	skipEastAsianWidths(t)
+
+	repos, _ := paymentsModel(t, 100, 24)
+	branches, _ := branchesModel(t, fixtureSnapshots(fixedNow), 100, 24)
+
+	tests := []struct {
+		name  string
+		m     Model
+		focus Pane
+		panes []Pane
+	}{
+		{"Repos", repos, PaneRepos, []Pane{PaneRepos, PaneCommits, PaneFiles}},
+		{"zoom table", pressSettle(t, repos, "z"), PaneRepos, []Pane{PaneRepos}},
+		{"Branches tab", branches, PaneCommits, []Pane{PaneRepos, PaneCommits, PaneFiles}},
+		{"Only here", pressSettle(t, branches, keyTab), PaneFiles, []Pane{PaneRepos, PaneCommits, PaneFiles}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if tt.m.focus != tt.focus {
+				t.Fatalf("focus = %d, want %d", tt.m.focus, tt.focus)
+			}
+
+			view := tt.m.View().Content
+
+			for _, p := range tt.panes {
+				row := cursorRowIn(t, tt.m, p)
+				bar := strings.Contains(view, tt.m.styles.CursorLine.Render(row))
+
+				if want := p == tt.focus; bar != want {
+					t.Errorf("pane %d cursor row %q drawn as the cursor bar = %t, want %t", p, row, bar, want)
+				}
+			}
+		})
+	}
+}
+
+// cursorRowIn returns the line inside pane p, without styling, that carries
+// the cursor mark in its gutter.
+func cursorRowIn(t *testing.T, m Model, p Pane) string {
+	t.Helper()
+
+	for _, line := range paneInside(t, m, p) {
+		if strings.HasPrefix(strings.TrimLeft(line, " "), cursorMark) {
+			return line
+		}
+	}
+
+	t.Fatalf("pane %d has no cursor row", p)
+
+	return ""
+}

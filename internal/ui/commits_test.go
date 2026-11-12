@@ -177,3 +177,37 @@ func TestCommitRowAuthorMuted(t *testing.T) {
 		t.Errorf("commitRow() = %q, want the author in the muted style", got)
 	}
 }
+
+// TestCursorBar draws the row under the cursor of the focused pane in the
+// cursor line style across the pane: the row's own styling gives way to the
+// bar, a short row is padded to the pane width and a long one is cut.
+func TestCursorBar(t *testing.T) {
+	t.Parallel()
+
+	st := newStyles(true)
+	line := st.Cursor.Render(cursorMark) + st.Attention.Render("!") + " payments  " + st.Badge.Render("deps")
+
+	tests := []struct {
+		name  string
+		width int
+		want  string
+	}{
+		{"padded to the pane", 24, pad("▸! payments  deps", 24)},
+		{"cut at the pane", 8, "▸! payme"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := cursorBar(line, tt.width, st)
+			if want := st.CursorLine.Render(tt.want); got != want {
+				t.Errorf("cursorBar() = %q, want %q", got, want)
+			}
+
+			if w := ansi.StringWidth(got); w != tt.width {
+				t.Errorf("cursorBar() width = %d, want %d", w, tt.width)
+			}
+		})
+	}
+}

@@ -86,7 +86,8 @@ func (m Model) filesLines(r Rect) []string {
 	}
 
 	for i := start; i < end; i++ {
-		lines = append(lines, cursorGutter(i == f.cursor, m.styles)+entry(i))
+		isCursor := i == f.cursor
+		lines = append(lines, m.paneRow(PaneFiles, isCursor, cursorGutter(isCursor, m.styles)+entry(i), r.W-2))
 	}
 
 	return appendMore(lines, more, m.styles)
